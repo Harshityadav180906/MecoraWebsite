@@ -1,0 +1,43 @@
+/* Container padding adjustment */
+.dashboard-container {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px !important; /* Prevents edge-clipping on small mobile viewports */
+}
+
+/* Fluid responsive grid wrapper */
+.products-grid {
+  display: grid;
+  /* 💡 Auto-fit automatically recalculates columns down to 1 wide if under 480px viewports */
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
+  gap: 16px !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Force layout scaling rules onto images within cards */
+.product-card {
+  width: 100% !important;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.product-card img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important; /* Prevents wide medicine box images from breaking cards */
+}
+
+/* Mobile layout media override rule */
+@media (max-width: 480px) {
+  .products-grid {
+    /* Uses a tighter minmax on extreme narrow viewports so cards don't feel too stretched */
+    grid-template-columns: repeat(auto-fill, minmax(100%, 1fr)) !important;
+    gap: 12px !important;
+  }
+  
+  .product-card h4 {
+    font-size: 0.95rem !important; /* Scales down titles cleanly */
+  }
+}

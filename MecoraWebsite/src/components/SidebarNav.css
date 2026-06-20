@@ -1,0 +1,84 @@
+/* Sidebar Container */
+.sidebar-nav {
+  width: 260px;
+  height: 100vh;
+  background-color: #f1f5f9;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 1.5rem;
+  position: sticky;
+  top: 0;
+  background-color: orange;
+}
+
+/* Header Area */
+.sidebar-header {
+  margin-bottom: 3rem;
+  padding-left: 0.5rem;
+}
+
+.sidebar-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #4f46e5;
+  margin: 0;
+}
+
+.sidebar-subtitle {
+  font-size: 0.7rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Navigation List */
+.sidebar-menu {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Menu Item Buttons */
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background-color: #e2e8f0;
+}
+
+.menu-item.active {
+  background-color: #e2e8f0;
+  color: #1e293b;
+}
+
+/* Sign Out Button */
+.logout-btn {
+  margin-top: auto;
+  padding: 0.75rem 1rem;
+  background-color: #ffffff;
+  color: #ef4444;
+  border: 1px solid #fee2e2;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.logout-btn:hover {
+  background-color: #fef2f2;
+}
