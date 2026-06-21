@@ -1,828 +1,924 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "./supabaseClient";
-import AdminDashboard from "./components/AdminDashboard";
-import ClientDashboard from "./components/ClientDashboard";
-import CartView from "./components/CartView";
-import OrdersView from "./components/OrdersView";
-import ProfileSection from "./components/ProfileSection";
-import "./App.css";
 
-const slidingImages = [
-  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1473968512647-3e447244af8f?auto=format&fit=crop&w=1200&q=80",
-  "https://images.unsplash.com/photo-1517976487492-5750f3195933?auto=format&fit=crop&w=1200&q=80",
-];
+// DEFINE YOUR SERVICEABLE BOUNDARIES (Example: Service locked to India / specific states/cities)
+// You can adjust these checks in the `checkServiceability` function below.
+const ALLOWED_COUNTRY_CODE = "in"; // India
 
-// ==========================================
-// Responsive styles for the auth (sign-in / register) screen.
-// Inline `style={{}}` props can't contain media queries, so the layout
-// that needs to *change shape* at breakpoints (two columns -> stacked,
-// large padding -> compact padding, big type -> smaller type) lives here
-// instead, scoped under .auth-page so it can't leak into the rest of the
-// app. Anything that depends on component state (the sliding background
-// image, the active dot) stays as an inline style since CSS can't read
-// React state.
-// ==========================================
-const authResponsiveStyles = `
-  .auth-page {
-    display: flex;
-    min-height: 100vh;
-    background-color: #f1f5f9;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    position: relative;
-    overflow: hidden;
-    font-family: system-ui, -apple-system, sans-serif;
-    box-sizing: border-box;
-  }
+export default function CartView({ cart, setCart, onCheckoutSuccess }) {
+  const [checkoutStep, setCheckoutStep] = useState("cart"); // 'cart' | 'delivery' | 'payment'
 
-  .auth-bg {
-    position: absolute;
-    inset: 0;
-    background-size: cover;
-    background-position: center;
-    transition: background-image 1.2s ease-in-out;
-    z-index: 1;
-  }
+  // Location & Address States
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [userAddress, setUserAddress] = useState(null); // Will hold structured address object
+  const [isServiceable, setIsServiceable] = useState(true);
 
-  .auth-card {
-    display: flex;
-    width: 100%;
-    max-width: 1000px;
-    background-color: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(20px);
-    border-radius: 24px;
-    overflow: hidden;
-    z-index: 2;
-  }
+  // Checkout Details
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("upi");
+  const [specificUpiApp, setSpecificUpiApp] = useState("generic");
 
-  .auth-left {
-    flex: 1.1;
-    padding: 4.5rem 3.5rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    border-right: 1px solid rgba(0, 0, 0, 0.04);
-    box-sizing: border-box;
-  }
-
-  .auth-brand {
-    font-size: 1.5rem;
-    font-weight: 900;
-    letter-spacing: 3px;
-    color: #4f46e5;
-  }
-
-  .auth-headline {
-    font-size: 2.85rem;
-    font-weight: 800;
-    color: #0f172a;
-    line-height: 1.15;
-    margin: 0;
-  }
-
-  .auth-headline span {
-    color: #4f46e5;
-  }
-
-  .auth-dots {
-    display: flex;
-    gap: 0.6rem;
-  }
-
-  .auth-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 99px;
-    background-color: #cbd5e1;
-    transition: all 0.5s ease;
-  }
-
-  .auth-dot.active {
-    width: 28px;
-    background-color: #4f46e5;
-  }
-
-  .auth-right {
-    flex: 1;
-    padding: 3.5rem;
-    background-color: #ffffff;
-    box-sizing: border-box;
-    min-width: 0; /* prevents flex children from forcing horizontal overflow */
-  }
-
-  .auth-right h2 {
-    font-size: 2.1rem;
-    font-weight: 700;
-    margin: 0 0 1.5rem 0;
-  }
-
-  .auth-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.1rem;
-  }
-
-  .auth-form input {
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 0.85rem 1.1rem;
-    font-size: 1rem;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .auth-address-row {
-    display: flex;
-    gap: 6px;
-  }
-
-  .auth-address-row input {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .auth-gps-btn {
-    padding: 0 1rem;
-    background: #e0e7ff;
-    border: none;
-    border-radius: 12px;
-    color: #4f46e5;
-    font-weight: 600;
-    font-size: 0.8rem;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .auth-submit {
-    padding: 0.95rem;
-    background-color: #4f46e5;
-    color: #ffffff;
-    border: none;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-  }
-
-  .auth-toggle {
-    margin-top: 1rem;
-    font-size: 0.9rem;
-    text-align: center;
-  }
-
-  .auth-toggle span {
-    color: #4f46e5;
-    cursor: pointer;
-  }
-
-  /* ---------- Tablet ---------- */
-  @media (max-width: 860px) {
-    .auth-page {
-      padding: 1.25rem;
-    }
-    .auth-left {
-      padding: 3rem 2.25rem;
-    }
-    .auth-right {
-      padding: 2.5rem;
-    }
-    .auth-headline {
-      font-size: 2.25rem;
-    }
-  }
-
-  /* ---------- Phone: stack the two panels ---------- */
-  @media (max-width: 640px) {
-    .auth-page {
-      padding: 0;
-      align-items: flex-start;
-    }
-    .auth-card {
-      flex-direction: column;
-      max-width: 100%;
-      border-radius: 0;
-      min-height: 100vh;
-    }
-    .auth-left {
-      border-right: none;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-      padding: 2.25rem 1.5rem;
-      gap: 2rem;
-    }
-    .auth-headline {
-      font-size: 1.85rem;
-    }
-    .auth-right {
-      padding: 2rem 1.5rem 2.5rem 1.5rem;
-    }
-    .auth-right h2 {
-      font-size: 1.6rem;
-    }
-    .auth-address-row {
-      flex-wrap: wrap;
-    }
-    .auth-gps-btn {
-      width: 100%;
-      padding: 0.85rem 1rem;
-    }
-  }
-
-  /* ---------- Very small phones ---------- */
-  @media (max-width: 380px) {
-    .auth-left {
-      padding: 1.75rem 1.25rem;
-    }
-    .auth-right {
-      padding: 1.75rem 1.25rem 2.25rem 1.25rem;
-    }
-    .auth-brand {
-      font-size: 1.25rem;
-    }
-    .auth-headline {
-      font-size: 1.55rem;
-    }
-  }
-`;
-
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState("customer");
-  const [loading, setLoading] = useState(true);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-
-  const [loginIdentifier, setLoginIdentifier] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [address, setAddress] = useState("");
-
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [locLoading, setLocLoading] = useState(false);
-
-  const [currentView, setCurrentView] = useState("products");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [localCategory, setLocalCategory] = useState("All");
-
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [cart, setCart] = useState([]);
-
-  const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
-
+  // 1. AUTOMATIC LIVE LOCATION RESOLVER
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY && currentScrollY > 80) {
-        setIsVisible(false);
-      } else {
-        setIsVisible(true);
-      }
-      setLastScrollY(currentScrollY);
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScrollY]);
-
-  useEffect(() => {
-    if (!user) {
-      const timer = setInterval(() => {
-        setCurrentImageIndex((prev) => (prev + 1) % slidingImages.length);
-      }, 5000);
-      return () => clearInterval(timer);
+    if (checkoutStep === "delivery") {
+      fetchLiveLocation();
     }
-  }, [user]);
-
-  useEffect(() => {
-    setFullName(`${firstName.trim()} ${lastName.trim()}`.trim());
-  }, [firstName, lastName]);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        getProfileData(session.user);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        getProfileData(session.user);
-      } else {
-        setUser(null);
-        setRole("customer");
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  async function getProfileData(authUser) {
-    try {
-      if (!authUser) return;
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", authUser.id)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      const meta = authUser.user_metadata || {};
-
-      if (data) {
-        setUser({
-          ...authUser,
-          ...data,
-          first_name:
-            data.first_name ||
-            meta.first_name ||
-            data.full_name?.split(" ")[0] ||
-            "Operator",
-          full_name: data.full_name || meta.full_name || authUser.email,
-        });
-        setRole(data.role || "customer");
-      } else {
-        setUser({
-          ...authUser,
-          first_name:
-            meta.first_name || meta.full_name?.split(" ")[0] || "Operator",
-          full_name: meta.full_name || authUser.email,
-        });
-        setRole("customer");
-      }
-    } catch (err) {
-      console.error("Error fetching profile metadata:", err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (user) {
-      fetchProducts();
-      fetchOrders();
-    }
-  }, [user, role]);
-
-  async function fetchProducts() {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("id", { ascending: false });
-    if (!error && data) setProducts(data);
-  }
-
-  async function fetchOrders() {
-    if (!user) return;
-    let query = supabase
-      .from("orders")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (role === "customer") {
-      query = query.eq("customer_email", user.email);
-    }
-    const { data, error } = await query;
-    if (!error && data) setOrders(data);
-  }
+  }, [checkoutStep]);
 
   const fetchLiveLocation = () => {
     if (!navigator.geolocation) {
-      return alert(
-        "Geolocation features are not supported by this browser interface.",
+      setLocationError(
+        "Geolocation is not supported by this browser network environment.",
       );
+      setIsServiceable(false);
+      return;
     }
-    setLocLoading(true);
+
+    setLoadingLocation(true);
+    setLocationError("");
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
         try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+          // Fetch reverse-geocoding from OpenStreetMap free public API
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+            { headers: { "User-Agent": "MecoraMedicalApp/1.0" } },
           );
-          const data = await res.json();
-          if (data && data.display_name) {
-            setAddress(data.display_name);
+          const data = await response.json();
+
+          if (data && data.address) {
+            const addressObj = data.address;
+            setUserAddress(data.display_name);
+
+            // EVALUATE AREA SERVICEABILITY BOUNDARY
+            // Example Rule: Must be within our allowed country code
+            if (addressObj.country_code !== ALLOWED_COUNTRY_CODE) {
+              setIsServiceable(false);
+            } else {
+              setIsServiceable(true);
+              // AUTOMATIC DELIVERY DATE CALCULATION LOGIC
+              // Example: Standard internal routing takes 3 days from current time matrix
+              const targetDate = new Date();
+              targetDate.setDate(targetDate.getDate() + 3);
+              setDeliveryDate(targetDate.toISOString().split("T")[0]);
+            }
           } else {
-            setAddress(`Lat: ${latitude}, Lon: ${longitude}`);
+            setLocationError(
+              "Unable to safely resolve geocoding mapping strings.",
+            );
+            setIsServiceable(false);
           }
         } catch (err) {
-          setAddress(`Lat: ${latitude}, Lon: ${longitude}`);
+          setLocationError(
+            "Address translation connection exception occurred.",
+          );
+          setIsServiceable(false);
         } finally {
-          setLocLoading(false);
+          setLoadingLocation(false);
         }
       },
       (error) => {
-        alert(`Location Error: ${error.message}`);
-        setLocLoading(false);
+        setLoadingLocation(false);
+        setIsServiceable(false);
+        if (error.code === error.PERMISSION_DENIED) {
+          setLocationError(
+            "Location authorization credentials denied by user client.",
+          );
+        } else {
+          setLocationError("System geolocation ping processing timed out.");
+        }
       },
-      { enableHighAccuracy: true, timeout: 10000 },
     );
   };
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      if (isRegistering) {
-        const currentFullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-        const sanitizedEmail = email.trim();
-        const sanitizedMobile = mobile.trim();
 
-        const { data: authData, error: signUpError } =
-          await supabase.auth.signUp({
-            email: sanitizedEmail,
-            password: password,
-            options: {
-              data: {
-                first_name: firstName.trim(),
-                last_name: lastName.trim(),
-                full_name: currentFullName,
-                phone: sanitizedMobile,
-                address: address.trim(),
-              },
-            },
-          });
-        if (signUpError) throw signUpError;
-
-        if (authData?.user) {
-          const { error: upsertError } = await supabase
-            .from("profiles")
-            .upsert({
-              id: authData.user.id,
-              email: sanitizedEmail,
-              first_name: firstName.trim(),
-              last_name: lastName.trim(),
-              full_name: currentFullName,
-              phone: sanitizedMobile,
-              address: address.trim(),
-            });
-
-          if (upsertError) throw upsertError;
-        }
-
-        setFirstName("");
-        setLastName("");
-        setMobile("");
-        setAddress("");
-        setEmail("");
-        setPassword("");
-        setLoginIdentifier(sanitizedEmail);
-        setIsRegistering(false);
-        alert("🎉 Account created successfully! Please sign in.");
-      } else {
-        let targetEmail = loginIdentifier.trim();
-
-        if (!targetEmail.includes("@")) {
-          const { data: pRec, error: phoneErr } = await supabase
-            .from("profiles")
-            .select("email")
-            .eq("phone", targetEmail)
-            .maybeSingle();
-
-          if (phoneErr || !pRec)
-            throw new Error("No account linked to this mobile number.");
-          targetEmail = pRec.email;
-        }
-
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: targetEmail,
-          password: password,
-        });
-        if (signInError) throw new Error("Invalid login details.");
-      }
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
+  const updateQuantity = (id, amount) => {
+    setCart((prev) =>
+      prev
+        .map((item) => {
+          if (item.id === id) {
+            const nextQuant = item.quantity + amount;
+            return nextQuant > 0 ? { ...item, quantity: nextQuant } : item;
+          }
+          return item;
+        })
+        .filter((item) => item.quantity > 0),
+    );
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setCart([]);
-    setSearchQuery("");
-    setCurrentView("products");
+  const removeItem = (id) => {
+    setCart((prev) => prev.filter((item) => item.id !== id));
   };
 
-  async function handleCheckout(orderData) {
-    // Check for an active session
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+  const subtotal = cart.reduce((sum, item) => {
+    const discount = item.discount ? parseFloat(item.discount) : 0;
+    const finalPrice =
+      discount > 0 ? item.price * (1 - discount / 100) : item.price;
+    return sum + finalPrice * item.quantity;
+  }, 0);
 
-    if (!session) {
-      alert("Your session has expired. Please log in again.");
-      setUser(null);
+  // TRANSIT TERMINAL DEEP LINK GATEWAY
+  // TRANSIT TERMINAL DEEP LINK GATEWAY
+  const handleFinalSubmit = async () => {
+    if (!deliveryDate || !isServiceable) {
+      alert("Please ensure your address is set and serviceable.");
       return;
     }
 
-    try {
-      const { error } = await supabase.from("orders").insert([
-        {
-          customer_email: session.user.email,
-          total_price: parseFloat(orderData.totalPrice),
-          items: orderData.items,
-          payment_method: orderData.paymentMethod,
-          delivery_date: orderData.deliveryDate,
-          shipping_address: orderData.address,
-          status: "Processing",
-        },
-      ]);
+    const orderData = {
+      totalPrice: subtotal,
+      items: cart,
+      paymentMethod:
+        paymentMethod === "upi"
+          ? `UPI_${specificUpiApp.toUpperCase()}`
+          : paymentMethod,
+      deliveryDate,
+      address: userAddress,
+    };
 
-      if (error) throw error;
+    if (paymentMethod === "upi") {
+      const payeeAddress = "harshit.y.1809@oksbi";
 
-      alert("🎉 Order placed successfully!");
-      setCart([]);
-      // Ensure fetchOrders is defined in the same scope or accessible
-      fetchOrders();
-      setCurrentView("orders");
-    } catch (err) {
-      console.error("Checkout failed:", err);
-      alert("Checkout failed: " + err.message);
+      const amount = subtotal.toFixed(2);
+
+      const upiUrl =
+        `upi://pay?pa=${encodeURIComponent(payeeAddress)}` +
+        `&pn=${encodeURIComponent("Mecora Medical")}` +
+        `&am=${amount}&cu=INR`;
+
+      const gpayUrl =
+        `gpay://upi/pay?pa=${encodeURIComponent(payeeAddress)}` +
+        `&pn=${encodeURIComponent("Mecora Medical")}` +
+        `&am=${amount}&cu=INR`;
+
+      switch (specificUpiApp) {
+        case "gpay":
+          window.location.href = gpayUrl;
+          break;
+
+        case "phonepe":
+        case "paytm":
+        case "generic":
+        default:
+          window.location.href = upiUrl;
+      }
+
+      setTimeout(async () => {
+        const confirmPayment = window.confirm("Did you complete the payment?");
+
+        if (confirmPayment) {
+          if (typeof onCheckoutSuccess === "function") {
+            await onCheckoutSuccess(orderData);
+          } else {
+            alert("Order placed successfully!");
+            setCart([]);
+          }
+        }
+      }, 2000);
+    } else {
+      console.log("Submitting non-UPI payment:", orderData);
+
+      if (typeof onCheckoutSuccess === "function") {
+        await onCheckoutSuccess(orderData);
+      } else {
+        alert("Order placed successfully!");
+        setCart([]);
+      }
     }
-  }
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "100vh",
-          backgroundColor: "#f8fafc",
-          fontFamily: "system-ui, -apple-system, sans-serif",
-          padding: "1.5rem",
-          boxSizing: "border-box",
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            position: "relative",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-          }}
-        >
-          <div
-            style={{
-              width: "44px",
-              height: "44px",
-              border: "2px dashed #cbd5e1",
-              borderTop: "2px solid #4f46e5",
-              borderBottom: "2px solid #4f46e5",
-              borderRadius: "50%",
-              animation:
-                "propellerSpin 0.8s cubic-bezier(0.4, 0.1, 0.3, 1) infinite",
-              marginBottom: "1.25rem",
-            }}
-          />
-        </div>
-        <h3
-          style={{
-            fontSize: "1rem",
-            fontWeight: "700",
-            color: "#0f172a",
-            margin: "0 0 0.25rem 0",
-            letterSpacing: "0.5px",
-          }}
-        >
-          MECORA
-        </h3>
-        <p
-          style={{
-            color: "#64748b",
-            fontSize: "0.8rem",
-            fontWeight: "500",
-            letterSpacing: "1px",
-            textTransform: "uppercase",
-            margin: 0,
-          }}
-        >
-          Connecting Core Nodes...
-        </p>
-      </div>
-    );
-  }
+  };
 
-  if (!user) {
-    return (
-      <div className="auth-page">
-        <style>{authResponsiveStyles}</style>
-
-        {/* Background image swap stays inline since it depends on React state */}
-        <div
-          className="auth-bg"
-          style={{
-            backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.45) 0%, rgba(241,245,249,0.85) 100%), url("${slidingImages[currentImageIndex]}")`,
-          }}
-        />
-
-        <div className="auth-card">
-          <div className="auth-left">
-            <div>
-              <span className="auth-brand">MECORA</span>
-            </div>
-            <div>
-              <h1 className="auth-headline">
-                Capturing Moments,
-                <br />
-                <span>Creating Systems.</span>
-              </h1>
-            </div>
-            <div className="auth-dots">
-              {slidingImages.map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`auth-dot ${idx === currentImageIndex ? "active" : ""}`}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="auth-right">
-            <h2>{isRegistering ? "Create an account" : "Welcome back"}</h2>
-            <form onSubmit={handleAuthSubmit} className="auth-form">
-              {!isRegistering ? (
-                <input
-                  type="text"
-                  placeholder="Email or Mobile"
-                  value={loginIdentifier}
-                  onChange={(e) => setLoginIdentifier(e.target.value)}
-                  required
-                />
-              ) : (
-                <>
-                  <input
-                    type="text"
-                    placeholder="First Name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="Last Name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    required
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="Mobile"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    required
-                  />
-
-                  <div className="auth-address-row">
-                    <input
-                      type="text"
-                      placeholder="Address"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={fetchLiveLocation}
-                      className="auth-gps-btn"
-                    >
-                      {locLoading ? "🛰️..." : "📍 GPS"}
-                    </button>
-                  </div>
-                </>
-              )}
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button type="submit" className="auth-submit">
-                {isRegistering ? "Register" : "Sign In"}
-              </button>
-            </form>
-            <p className="auth-toggle">
-              <span onClick={() => setIsRegistering(!isRegistering)}>
-                {isRegistering
-                  ? "Already have an account? Sign In"
-                  : "New operator? Register here"}
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // UI Tokens — layout structure (column count, spacing) now lives in the
+  // injected <style> block below so it can respond to media queries.
+  // These objects only hold properties that don't need to change per breakpoint.
+  const stepIndicator = (active) => ({
+    flex: 1,
+    padding: "10px",
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: "13px",
+    borderBottom: active ? "3px solid #0f766e" : "3px solid #e2e8f0",
+    color: active ? "#0f766e" : "#94a3b8",
+  });
 
   return (
-    <div className="app-layout" style={{ paddingBottom: "70px" }}>
-      {" "}
-      {/* Gives room for the bottom navbar on mobile */}
-      <div style={{ position: "sticky", top: 0, zIndex: 100, width: "100%" }}>
-        <ClientDashboard
-          products={products}
-          cart={cart}
-          setCart={setCart}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          currentView={currentView}
-          setCurrentView={setCurrentView}
-          role={role}
-          user={user}
-          onLogout={handleLogout}
-          localCategory={localCategory}
-          setLocalCategory={setLocalCategory}
-          isNavbarOnly={true}
-          fetchOrders={fetchOrders}
-        />
-      </div>
-      <main className="main-content">
-        <div style={{ width: "100%", margin: "0", boxSizing: "border-box" }}>
-          {currentView === "products" &&
-            (role === "admin" ? (
-              <AdminDashboard
-                products={products}
-                orders={orders}
-                fetchProducts={fetchProducts}
-              />
-            ) : (
-              <ClientDashboard
-                products={products}
-                cart={cart}
-                setCart={setCart}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                currentView={currentView}
-                setCurrentView={setCurrentView}
-                role={role}
-                user={user}
-                onLogout={handleLogout}
-                localCategory={localCategory}
-                setLocalCategory={setLocalCategory}
-                isNavbarOnly={false}
-                fetchOrders={fetchOrders}
-              />
-            ))}
+    <>
+      <style>{`
+        .mc-wrapper {
+          max-width: 1200px;
+          width: 92%;
+          margin: 40px auto;
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: 32px;
+          text-align: left;
+          box-sizing: border-box;
+        }
+        .mc-wrapper * { box-sizing: border-box; }
+        .mc-card {
+          background: #ffffff;
+          border-radius: 12px;
+          padding: 30px;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .mc-main-col { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+        .mc-step-bar { display: flex; background: #fff; border-radius: 8px; padding: 10px 20px; border: 1px solid #e2e8f0; }
+        .mc-item-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px 0;
+          border-bottom: 1px solid #f1f5f9;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .mc-item-info { flex: 1 1 160px; min-width: 0; }
+        .mc-item-qty { display: flex; align-items: center; gap: 12px; }
+        .mc-item-price { text-align: right; min-width: 90px; }
+        .mc-upi-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+          gap: 10px;
+          padding-left: 24px;
+        }
+        .mc-footer-actions { display: flex; gap: 10px; }
+        .mc-sidebar { height: fit-content; }
 
-          {currentView === "categories" && (
-            <ClientDashboard
-              products={products}
-              cart={cart}
-              setCart={setCart}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              currentView={currentView}
-              setCurrentView={setCurrentView}
-              role={role}
-              user={user}
-              onLogout={handleLogout}
-              localCategory={localCategory}
-              setLocalCategory={setLocalCategory}
-              isNavbarOnly={false}
-              fetchOrders={fetchOrders}
-            />
+        @media (max-width: 860px) {
+          .mc-wrapper {
+            grid-template-columns: 1fr;
+            width: 94%;
+            margin: 20px auto;
+            gap: 20px;
+          }
+          .mc-sidebar { order: 2; }
+          .mc-main-col { order: 1; }
+        }
+
+        @media (max-width: 600px) {
+          .mc-card { padding: 18px; border-radius: 10px; }
+          .mc-step-bar { padding: 8px 6px; }
+          .mc-step-bar > div { font-size: 11px; padding: 8px 4px; }
+          .mc-unavailable-title { font-size: 18px !important; }
+          .mc-unavailable-block { padding: 32px 16px !important; }
+          .mc-upi-grid { padding-left: 0; grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 480px) {
+          .mc-item-row { flex-wrap: wrap; }
+          .mc-item-info { flex: 1 1 100%; }
+          .mc-item-qty { order: 2; margin-right: 0 !important; }
+          .mc-item-price { order: 3; text-align: left; min-width: 0; flex: 1 1 auto; display: flex; justify-content: space-between; align-items: center; }
+          .mc-footer-actions { flex-direction: column; }
+          .mc-footer-actions > button { width: 100%; }
+        }
+      `}</style>
+
+      <div className="mc-wrapper">
+        <div className="mc-main-col">
+          {/* PROGRESS FLOW STEP BAR */}
+          <div className="mc-step-bar">
+            <div style={stepIndicator(checkoutStep === "cart")}>
+              1. Review Basket
+            </div>
+            <div style={stepIndicator(checkoutStep === "delivery")}>
+              2. Schedule Logistics
+            </div>
+            <div style={stepIndicator(checkoutStep === "payment")}>
+              3. Settlement Terminal
+            </div>
+          </div>
+
+          {/* STEP 1: BASKET OVERVIEW */}
+          {checkoutStep === "cart" && (
+            <div className="mc-card">
+              <h2
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "700",
+                  marginBottom: "20px",
+                }}
+              >
+                Your Medication Order Basket
+              </h2>
+              {cart.length === 0 ? (
+                <p
+                  style={{
+                    color: "#64748b",
+                    textAlign: "center",
+                    padding: "40px 0",
+                  }}
+                >
+                  Your cart is empty. Explore the medical catalog to add lines.
+                </p>
+              ) : (
+                cart.map((item) => {
+                  const disc = item.discount ? parseFloat(item.discount) : 0;
+                  const finalP =
+                    disc > 0 ? item.price * (1 - disc / 100) : item.price;
+                  return (
+                    <div key={item.id} className="mc-item-row">
+                      <div className="mc-item-info">
+                        <h4
+                          style={{
+                            fontWeight: "600",
+                            color: "#0f172a",
+                            margin: "0 0 4px 0",
+                          }}
+                        >
+                          {item.name}
+                        </h4>
+                        <span style={{ fontSize: "12px", color: "#64748b" }}>
+                          Salt: {item.salt || "N/A"}
+                        </span>
+                      </div>
+                      <div className="mc-item-qty">
+                        <button
+                          onClick={() => updateQuantity(item.id, -1)}
+                          style={{
+                            width: "28px",
+                            height: "28px",
+                            border: "1px solid #cbd5e1",
+                            background: "#fff",
+                            cursor: "pointer",
+                          }}
+                        >
+                          -
+                        </button>
+                        <span
+                          style={{
+                            fontWeight: "600",
+                            width: "20px",
+                            textAlign: "center",
+                          }}
+                        >
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(item.id, 1)}
+                          style={{
+                            width: "28px",
+                            height: "28px",
+                            border: "1px solid #cbd5e1",
+                            background: "#fff",
+                            cursor: "pointer",
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="mc-item-price">
+                        <div style={{ fontWeight: "700" }}>
+                          ₹{(finalP * item.quantity).toFixed(1)}
+                        </div>
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#ef4444",
+                            fontSize: "12px",
+                            cursor: "pointer",
+                            marginTop: "4px",
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           )}
 
-          {currentView === "cart" && (
-            <CartView
-              cart={cart}
-              setCart={setCart}
-              products={products}
-              onCheckoutSuccess={handleCheckout}
-            />
+          {/* STEP 2: LIVE LOCATION SCREEN & CONDITIONALS */}
+          {checkoutStep === "delivery" && (
+            <div className="mc-card">
+              <h2
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "700",
+                  marginBottom: "8px",
+                }}
+              >
+                Logistics Delivery Routing
+              </h2>
+
+              {loadingLocation ? (
+                <div
+                  style={{
+                    padding: "40px 0",
+                    textAlign: "center",
+                    color: "#0f766e",
+                    fontWeight: "600",
+                  }}
+                >
+                  Acquiring live location coordinates and checking network
+                  routing maps...
+                </div>
+              ) : !isServiceable ? (
+                /* CRITICAL SERVICE UN-AVAILABLE NOTICE SCREEN */
+                <div
+                  className="mc-unavailable-block"
+                  style={{
+                    padding: "60px 20px",
+                    textAlign: "center",
+                    background: "#fef2f2",
+                    borderRadius: "8px",
+                    border: "1px solid #fee2e2",
+                  }}
+                >
+                  <h1
+                    className="mc-unavailable-title"
+                    style={{
+                      color: "#ef4444",
+                      fontSize: "22px",
+                      fontWeight: "800",
+                      margin: "0 0 12px 0",
+                    }}
+                  >
+                    We are Working Hard to Provide Service that Your Area
+                  </h1>
+                  <p
+                    style={{
+                      color: "#64748b",
+                      fontSize: "13px",
+                      margin: "0 0 20px 0",
+                    }}
+                  >
+                    Currently outside the distribution network boundaries.{" "}
+                    {locationError}
+                  </p>
+                  <button
+                    onClick={fetchLiveLocation}
+                    style={{
+                      background: "#ef4444",
+                      color: "#fff",
+                      border: "none",
+                      padding: "8px 16px",
+                      borderRadius: "4px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Retry Geolocation Ping
+                  </button>
+                </div>
+              ) : (
+                /* SERVICEABLE CONFIRMED REGION VIEW */
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "20px",
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                      borderRadius: "8px",
+                      padding: "16px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        background: "#10b981",
+                        color: "#fff",
+                        padding: "2px 6px",
+                        borderRadius: "4px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      LOCATION ACQUIRED
+                    </span>
+                    <p
+                      style={{
+                        fontSize: "14px",
+                        margin: "8px 0 0 0",
+                        color: "#1e293b",
+                        fontWeight: "500",
+                      }}
+                    >
+                      <strong>Auto-Selected Address:</strong>
+                      <br />
+                      {userAddress || "Locating network site..."}
+                    </p>
+                  </div>
+
+                  <div style={{ maxWidth: "340px", width: "100%" }}>
+                    <label
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        color: "#475569",
+                        display: "block",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      Calculated Arrival Window Date
+                    </label>
+                    <input
+                      type="date"
+                      value={deliveryDate}
+                      disabled
+                      style={{
+                        width: "100%",
+                        height: "40px",
+                        padding: "0 12px",
+                        borderRadius: "6px",
+                        border: "1px solid #cbd5e1",
+                        fontSize: "14px",
+                        background: "#f1f5f9",
+                        color: "#334155",
+                        fontWeight: "600",
+                        cursor: "not-allowed",
+                      }}
+                    />
+                    <small
+                      style={{
+                        color: "#64748b",
+                        marginTop: "4px",
+                        display: "block",
+                      }}
+                    >
+                      Delivery date configured automatically based on warehouse
+                      dispatch proximity calculations.
+                    </small>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
-          {currentView === "orders" && (
-            <OrdersView role={role} orders={orders} fetchOrders={fetchOrders} />
-          )}
-          {currentView === "profile" && (
-            <ProfileSection user={user} role={role} />
+
+          {/* STEP 3: PAYMENT SCREEN */}
+          {checkoutStep === "payment" && (
+            <div className="mc-card">
+              <h2
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "700",
+                  marginBottom: "8px",
+                }}
+              >
+                Secure Settlement Terminal
+              </h2>
+              <p
+                style={{
+                  color: "#64748b",
+                  fontSize: "13px",
+                  marginBottom: "24px",
+                }}
+              >
+                Select an authorized transactional protocol to conclude order
+                lines.
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                }}
+              >
+                <div
+                  style={{
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "8px",
+                    padding: "16px",
+                    background: paymentMethod === "upi" ? "#f0fdf4" : "#fff",
+                    borderColor:
+                      paymentMethod === "upi" ? "#bbf7d0" : "#e2e8f0",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      cursor: "pointer",
+                      marginBottom: paymentMethod === "upi" ? "16px" : "0",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="pay"
+                      checked={paymentMethod === "upi"}
+                      onChange={() => setPaymentMethod("upi")}
+                    />
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: "600",
+                          fontSize: "14px",
+                          color: "#0f766e",
+                        }}
+                      >
+                        ⚡ Live UPI Mobile App Deep-Linking Gateway
+                      </div>
+                    </div>
+                  </label>
+
+                  {paymentMethod === "upi" && (
+                    <div className="mc-upi-grid">
+                      <button
+                        onClick={() => setSpecificUpiApp("generic")}
+                        style={{
+                          padding: "10px",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          border:
+                            specificUpiApp === "generic"
+                              ? "2px solid #0f766e"
+                              : "1px solid #cbd5e1",
+                          background: "#fff",
+                        }}
+                      >
+                        System Chooser
+                      </button>
+                      <button
+                        onClick={() => setSpecificUpiApp("gpay")}
+                        style={{
+                          padding: "10px",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          border:
+                            specificUpiApp === "gpay"
+                              ? "2px solid #4285F4"
+                              : "1px solid #cbd5e1",
+                          background: "#fff",
+                          color: specificUpiApp === "gpay" ? "#4285F4" : "#000",
+                        }}
+                      >
+                        🔵 Google Pay
+                      </button>
+                      <button
+                        onClick={() => setSpecificUpiApp("phonepe")}
+                        style={{
+                          padding: "10px",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          border:
+                            specificUpiApp === "phonepe"
+                              ? "2px solid #5f259f"
+                              : "1px solid #cbd5e1",
+                          background: "#fff",
+                          color:
+                            specificUpiApp === "phonepe" ? "#5f259f" : "#000",
+                        }}
+                      >
+                        🟣 PhonePe
+                      </button>
+                      <button
+                        onClick={() => setSpecificUpiApp("paytm")}
+                        style={{
+                          padding: "10px",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          border:
+                            specificUpiApp === "paytm"
+                              ? "2px solid #00baf2"
+                              : "1px solid #cbd5e1",
+                          background: "#fff",
+                          color:
+                            specificUpiApp === "paytm" ? "#00baf2" : "#000",
+                        }}
+                      >
+                        🔵 Paytm
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "14px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    background: paymentMethod === "card" ? "#f0fdf4" : "#fff",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="pay"
+                    checked={paymentMethod === "card"}
+                    onChange={() => {
+                      setPaymentMethod("card");
+                      setSpecificUpiApp("generic");
+                    }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: "600", fontSize: "14px" }}>
+                      Corporate Credit/Debit Card Network
+                    </div>
+                  </div>
+                </label>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "14px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    background: paymentMethod === "cod" ? "#f0fdf4" : "#fff",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="pay"
+                    checked={paymentMethod === "cod"}
+                    onChange={() => {
+                      setPaymentMethod("cod");
+                      setSpecificUpiApp("generic");
+                    }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: "600", fontSize: "14px" }}>
+                      Pay on Collection Dispatch (COD)
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
           )}
         </div>
-      </main>
-    </div>
+
+        {/* PERSISTENT SUMMARY SIDEBAR */}
+        <div className="mc-card mc-sidebar">
+          <h3
+            style={{
+              fontSize: "16px",
+              fontWeight: "700",
+              marginBottom: "20px",
+            }}
+          >
+            Order Pipeline Summary
+          </h3>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: "12px",
+              fontSize: "13px",
+              color: "#475569",
+            }}
+          >
+            <span>Allocated Volume:</span>
+            <span>{cart.reduce((s, i) => s + i.quantity, 0)} units</span>
+          </div>
+
+          {isServiceable && deliveryDate && checkoutStep !== "cart" && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "12px",
+                fontSize: "13px",
+                color: "#475569",
+              }}
+            >
+              <span>Target Delivery:</span>
+              <span style={{ fontWeight: "600", color: "#0f766e" }}>
+                {deliveryDate}
+              </span>
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: "24px",
+              fontSize: "15px",
+              fontWeight: "700",
+              color: "#0f172a",
+              borderTop: "1px solid #f1f5f9",
+              paddingTop: "16px",
+            }}
+          >
+            <span>Estimated Settlement:</span>
+            <span>₹{subtotal.toFixed(1)}</span>
+          </div>
+
+          {/* WORKFLOW NAVIGATION FOOTER TRIGGER BUTTONS */}
+          {checkoutStep === "cart" && (
+            <button
+              onClick={() => setCheckoutStep("delivery")}
+              disabled={cart.length === 0}
+              style={{
+                width: "100%",
+                height: "44px",
+                background: "#0f766e",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                fontWeight: "600",
+                cursor: cart.length > 0 ? "pointer" : "not-allowed",
+                opacity: cart.length > 0 ? 1 : 0.6,
+              }}
+            >
+              Confirm Order & Choose Date
+            </button>
+          )}
+
+          {checkoutStep === "delivery" && (
+            <div className="mc-footer-actions">
+              <button
+                onClick={() => setCheckoutStep("cart")}
+                style={{
+                  flex: 1,
+                  height: "40px",
+                  background: "#f1f5f9",
+                  color: "#334155",
+                  border: "none",
+                  borderRadius: "6px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Back
+              </button>
+              <button
+                onClick={() => setCheckoutStep("payment")}
+                disabled={!isServiceable || loadingLocation || !deliveryDate}
+                style={{
+                  flex: 2,
+                  height: "40px",
+                  background: "#0f766e",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  fontWeight: "600",
+                  cursor:
+                    isServiceable && !loadingLocation && deliveryDate
+                      ? "pointer"
+                      : "not-allowed",
+                  opacity:
+                    isServiceable && !loadingLocation && deliveryDate ? 1 : 0.5,
+                }}
+              >
+                Proceed to Payment
+              </button>
+            </div>
+          )}
+
+          {checkoutStep === "payment" && (
+            <div className="mc-footer-actions">
+              <button
+                onClick={() => setCheckoutStep("delivery")}
+                style={{
+                  flex: 1,
+                  height: "40px",
+                  background: "#f1f5f9",
+                  color: "#334155",
+                  border: "none",
+                  borderRadius: "6px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Back
+              </button>
+              <button
+                onClick={handleFinalSubmit}
+                style={{
+                  flex: 2,
+                  height: "40px",
+                  background: paymentMethod === "upi" ? "#0f766e" : "#10b981",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                {paymentMethod === "upi"
+                  ? `⚡ Open ${specificUpiApp.toUpperCase()} & Pay`
+                  : "Confirm Order & Pay"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
