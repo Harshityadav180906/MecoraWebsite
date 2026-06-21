@@ -13,6 +13,240 @@ const slidingImages = [
   "https://images.unsplash.com/photo-1517976487492-5750f3195933?auto=format&fit=crop&w=1200&q=80"
 ];
 
+// ==========================================
+// Responsive styles for the auth (sign-in / register) screen.
+// Inline `style={{}}` props can't contain media queries, so the layout
+// that needs to *change shape* at breakpoints (two columns -> stacked,
+// large padding -> compact padding, big type -> smaller type) lives here
+// instead, scoped under .auth-page so it can't leak into the rest of the
+// app. Anything that depends on component state (the sliding background
+// image, the active dot) stays as an inline style since CSS can't read
+// React state.
+// ==========================================
+const authResponsiveStyles = `
+  .auth-page {
+    display: flex;
+    min-height: 100vh;
+    background-color: #f1f5f9;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, sans-serif;
+    box-sizing: border-box;
+  }
+
+  .auth-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    transition: background-image 1.2s ease-in-out;
+    z-index: 1;
+  }
+
+  .auth-card {
+    display: flex;
+    width: 100%;
+    max-width: 1000px;
+    background-color: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    overflow: hidden;
+    z-index: 2;
+  }
+
+  .auth-left {
+    flex: 1.1;
+    padding: 4.5rem 3.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border-right: 1px solid rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
+  }
+
+  .auth-brand {
+    font-size: 1.5rem;
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: #4f46e5;
+  }
+
+  .auth-headline {
+    font-size: 2.85rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.15;
+    margin: 0;
+  }
+
+  .auth-headline span {
+    color: #4f46e5;
+  }
+
+  .auth-dots {
+    display: flex;
+    gap: 0.6rem;
+  }
+
+  .auth-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 99px;
+    background-color: #cbd5e1;
+    transition: all 0.5s ease;
+  }
+
+  .auth-dot.active {
+    width: 28px;
+    background-color: #4f46e5;
+  }
+
+  .auth-right {
+    flex: 1;
+    padding: 3.5rem;
+    background-color: #ffffff;
+    box-sizing: border-box;
+    min-width: 0; /* prevents flex children from forcing horizontal overflow */
+  }
+
+  .auth-right h2 {
+    font-size: 2.1rem;
+    font-weight: 700;
+    margin: 0 0 1.5rem 0;
+  }
+
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  .auth-form input {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0.85rem 1.1rem;
+    font-size: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .auth-address-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .auth-address-row input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .auth-gps-btn {
+    padding: 0 1rem;
+    background: #e0e7ff;
+    border: none;
+    border-radius: 12px;
+    color: #4f46e5;
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .auth-submit {
+    padding: 0.95rem;
+    background-color: #4f46e5;
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .auth-toggle {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .auth-toggle span {
+    color: #4f46e5;
+    cursor: pointer;
+  }
+
+  /* ---------- Tablet ---------- */
+  @media (max-width: 860px) {
+    .auth-page {
+      padding: 1.25rem;
+    }
+    .auth-left {
+      padding: 3rem 2.25rem;
+    }
+    .auth-right {
+      padding: 2.5rem;
+    }
+    .auth-headline {
+      font-size: 2.25rem;
+    }
+  }
+
+  /* ---------- Phone: stack the two panels ---------- */
+  @media (max-width: 640px) {
+    .auth-page {
+      padding: 0;
+      align-items: flex-start;
+    }
+    .auth-card {
+      flex-direction: column;
+      max-width: 100%;
+      border-radius: 0;
+      min-height: 100vh;
+    }
+    .auth-left {
+      border-right: none;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      padding: 2.25rem 1.5rem;
+      gap: 2rem;
+    }
+    .auth-headline {
+      font-size: 1.85rem;
+    }
+    .auth-right {
+      padding: 2rem 1.5rem 2.5rem 1.5rem;
+    }
+    .auth-right h2 {
+      font-size: 1.6rem;
+    }
+    .auth-address-row {
+      flex-wrap: wrap;
+    }
+    .auth-gps-btn {
+      width: 100%;
+      padding: 0.85rem 1rem;
+    }
+  }
+
+  /* ---------- Very small phones ---------- */
+  @media (max-width: 380px) {
+    .auth-left {
+      padding: 1.75rem 1.25rem;
+    }
+    .auth-right {
+      padding: 1.75rem 1.25rem 2.25rem 1.25rem;
+    }
+    .auth-brand {
+      font-size: 1.25rem;
+    }
+    .auth-headline {
+      font-size: 1.55rem;
+    }
+  }
+`;
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState('customer');
@@ -284,7 +518,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: 'system-ui, -apple-system, sans-serif', padding: '1.5rem', boxSizing: 'border-box', textAlign: 'center' }}>
         <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{ width: '44px', height: '44px', border: '2px dashed #cbd5e1', borderTop: '2px solid #4f46e5', borderBottom: '2px solid #4f46e5', borderRadius: '50%', animation: 'propellerSpin 0.8s cubic-bezier(0.4, 0.1, 0.3, 1) infinite', marginBottom: '1.25rem' }} />
         </div>
@@ -296,46 +530,55 @@ export default function App() {
 
   if (!user) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', padding: '2rem', position: 'relative', overflow: 'hidden', fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.45) 0%, rgba(241,245,249,0.85) 100%), url("${slidingImages[currentImageIndex]}")`, backgroundSize: 'cover', backgroundPosition: 'center', transition: 'background-image 1.2s ease-in-out', zIndex: 1 }} />
-        <div style={{ display: 'flex', width: '100%', maxWidth: '1000px', backgroundColor: 'rgba(255, 255, 255, 0.88)', backdropFilter: 'blur(20px)', borderRadius: '24px', overflow: 'hidden', zIndex: 2 }}>
-          <div style={{ flex: 1.1, padding: '4.5rem 3.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRight: '1px solid rgba(0, 0, 0, 0.04)' }}>
-            <div><span style={{ fontSize: '1.5rem', fontWeight: '900', letterSpacing: '3px', color: '#4f46e5' }}>MECORA</span></div>
+      <div className="auth-page">
+        <style>{authResponsiveStyles}</style>
+
+        {/* Background image swap stays inline since it depends on React state */}
+        <div
+          className="auth-bg"
+          style={{
+            backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.45) 0%, rgba(241,245,249,0.85) 100%), url("${slidingImages[currentImageIndex]}")`
+          }}
+        />
+
+        <div className="auth-card">
+          <div className="auth-left">
+            <div><span className="auth-brand">MECORA</span></div>
             <div>
-              <h1 style={{ fontSize: '2.85rem', fontWeight: '800', color: '#0f172a' }}>Capturing Moments,<br /><span style={{ color: '#4f46e5' }}>Creating Systems.</span></h1>
+              <h1 className="auth-headline">Capturing Moments,<br /><span>Creating Systems.</span></h1>
             </div>
-            <div style={{ display: 'flex', gap: '0.6rem' }}>
+            <div className="auth-dots">
               {slidingImages.map((_, idx) => (
-                <div key={idx} style={{ width: idx === currentImageIndex ? '28px' : '8px', height: '8px', borderRadius: '99px', backgroundColor: idx === currentImageIndex ? '#4f46e5' : '#cbd5e1', transition: 'all 0.5s ease' }} />
+                <div key={idx} className={`auth-dot ${idx === currentImageIndex ? 'active' : ''}`} />
               ))}
             </div>
           </div>
-          
-          <div style={{ flex: 1, padding: '3.5rem', backgroundColor: '#ffffff' }}>
-            <h2 style={{ fontSize: '2.1rem', fontWeight: '700', marginBottom: '1.5rem' }}>{isRegistering ? 'Create an account' : 'Welcome back'}</h2>
-            <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+
+          <div className="auth-right">
+            <h2>{isRegistering ? 'Create an account' : 'Welcome back'}</h2>
+            <form onSubmit={handleAuthSubmit} className="auth-form">
               {!isRegistering ? (
-                <input type="text" placeholder="Email or Mobile" value={loginIdentifier} onChange={e => setLoginIdentifier(e.target.value)} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0.85rem 1.1rem' }} required />
+                <input type="text" placeholder="Email or Mobile" value={loginIdentifier} onChange={e => setLoginIdentifier(e.target.value)} required />
               ) : (
                 <>
-                  <input type="text" placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0.85rem 1.1rem' }} required />
-                  <input type="text" placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0.85rem 1.1rem' }} required />
-                  <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0.85rem 1.1rem' }} required />
-                  <input type="text" placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value)} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0.85rem 1.1rem' }} required />
-                  
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <input type="text" placeholder="Address" value={address} onChange={e => setAddress(e.target.value)} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0.85rem 1.1rem', flex: 1 }} required />
-                    <button type="button" onClick={fetchLiveLocation} style={{ padding: '0 1rem', background: '#e0e7ff', border: 'none', borderRadius: '12px', color: '#4f46e5', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer' }}>
+                  <input type="text" placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} required />
+                  <input type="text" placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} required />
+                  <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+                  <input type="text" placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value)} required />
+
+                  <div className="auth-address-row">
+                    <input type="text" placeholder="Address" value={address} onChange={e => setAddress(e.target.value)} required />
+                    <button type="button" onClick={fetchLiveLocation} className="auth-gps-btn">
                       {locLoading ? '🛰️...' : '📍 GPS'}
                     </button>
                   </div>
                 </>
               )}
-              <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0.85rem 1.1rem' }} required />
-              <button type="submit" style={{ padding: '0.95rem', backgroundColor: '#4f46e5', color: '#ffffff', border: 'none', borderRadius: '12px', fontWeight: '600', cursor: 'pointer' }}>{isRegistering ? 'Register' : 'Sign In'}</button>
+              <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+              <button type="submit" className="auth-submit">{isRegistering ? 'Register' : 'Sign In'}</button>
             </form>
-            <p style={{ marginTop: '1rem', fontSize: '0.9rem', textAlign: 'center' }}>
-              <span style={{ color: '#4f46e5', cursor: 'pointer' }} onClick={() => setIsRegistering(!isRegistering)}>{isRegistering ? 'Already have an account? Sign In' : 'New operator? Register here'}</span>
+            <p className="auth-toggle">
+              <span onClick={() => setIsRegistering(!isRegistering)}>{isRegistering ? 'Already have an account? Sign In' : 'New operator? Register here'}</span>
             </p>
           </div>
         </div>
