@@ -431,33 +431,6 @@ export default function App() {
       { enableHighAccuracy: true, timeout: 10000 },
     );
   };
-  async function handleCheckout(orderData) {
-    if (!user) return;
-
-    try {
-      const { error: orderError } = await supabase.from("orders").insert([
-        {
-          customer_email: user.email,
-          total_price: parseFloat(orderData.totalPrice),
-          items: orderData.items,
-          payment_method: orderData.paymentMethod,
-          delivery_date: orderData.deliveryDate,
-          shipping_address: orderData.address,
-          status: "Processing",
-        },
-      ]);
-
-      if (orderError) throw orderError;
-
-      alert("🎉 Order placed successfully!");
-      setCart([]);
-      fetchOrders();
-      setCurrentView("orders");
-    } catch (err) {
-      console.error("Database Insert Error:", err);
-      alert("Checkout failed: " + err.message);
-    }
-  }
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -545,10 +518,21 @@ export default function App() {
   };
 
   async function handleCheckout(orderData) {
+    // Check for an active session
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      alert("Your session has expired. Please log in again.");
+      setUser(null);
+      return;
+    }
+
     try {
       const { error } = await supabase.from("orders").insert([
         {
-          customer_email: user.email,
+          customer_email: session.user.email,
           total_price: parseFloat(orderData.totalPrice),
           items: orderData.items,
           payment_method: orderData.paymentMethod,
@@ -561,19 +545,15 @@ export default function App() {
       if (error) throw error;
 
       alert("🎉 Order placed successfully!");
-
-      // FIX: Pass the new state (empty array) to the setter
       setCart([]);
-
-      // Ensure these functions are defined and available in this scope
-      if (typeof fetchOrders === "function") fetchOrders();
-      if (typeof setCurrentView === "function") setCurrentView("orders");
+      // Ensure fetchOrders is defined in the same scope or accessible
+      fetchOrders();
+      setCurrentView("orders");
     } catch (err) {
       console.error("Checkout failed:", err);
       alert("Checkout failed: " + err.message);
     }
   }
-
   if (loading) {
     return (
       <div
