@@ -114,7 +114,7 @@ export default function OrdersView({ role, orders, fetchOrders }) {
                         Order #{sequentialDisplayId}
                       </span>
                       <span style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--accent-orange)' }}>
-                        ${parseFloat(order.total_price).toFixed(2)}
+                        ₹{parseFloat(order.total_price).toFixed(2)}
                       </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -231,7 +231,7 @@ export default function OrdersView({ role, orders, fetchOrders }) {
                               <span style={{ fontWeight: '600' }}>{item.name}</span>
                               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginLeft: '0.5rem' }}>x{item.quantity}</span>
                             </div>
-                            <span style={{ fontWeight: '500' }}>${parseFloat(item.price * item.quantity).toFixed(2)}</span>
+                            <span style={{ fontWeight: '500' }}>₹{parseFloat(item.price * item.quantity).toFixed(2)}</span>
                           </div>
                         ))}
                       </div>
@@ -241,7 +241,7 @@ export default function OrdersView({ role, orders, fetchOrders }) {
                       <div className="ov-total-row">
                         <span style={{ fontWeight: '600', color: 'var(--text-muted)' }}>Total Amount Charged:</span>
                         <span className="ov-total-amount" style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--primary)' }}>
-                          ${parseFloat(selectedOrder.total_price).toFixed(2)}
+                          ₹{parseFloat(selectedOrder.total_price).toFixed(2)}
                         </span>
                       </div>
                     </div>
