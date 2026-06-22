@@ -41,3 +41,21 @@
     font-size: 0.95rem !important; /* Scales down titles cleanly */
   }
 }
+.products-grid {
+  display: grid;
+  /* Adjust columns as needed */
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.product-detail-inline {
+  /* This forces the detail view to break the row and occupy the full width */
+  grid-column: 1 / -1; 
+  border: 1px solid #e2e8f0;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
