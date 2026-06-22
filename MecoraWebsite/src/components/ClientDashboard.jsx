@@ -2,6 +2,535 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import "./ClientDashboard.css";
 
+/* ─────────────────────────────────────────────────────
+   GLOBAL RESPONSIVE CSS
+───────────────────────────────────────────────────── */
+const GLOBAL_CSS = `
+  * { box-sizing: border-box; }
+
+  /* Product detail page layout */
+  .pdp-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: #f1f5f9;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  /* Back bar */
+  .pdp-back-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  /* Image block */
+  .pdp-image-block {
+    background: #fff;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .pdp-image-block img {
+    width: 100%;
+    max-height: 260px;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Product info block */
+  .pdp-info-block {
+    background: #fff;
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Price + CTA block */
+  .pdp-cta-block {
+    background: #fff;
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  /* Tabs strip */
+  .pdp-tabs {
+    display: flex;
+    background: #fff;
+    border-bottom: 2px solid #e2e8f0;
+    position: sticky;
+    top: 49px;
+    z-index: 40;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pdp-tabs::-webkit-scrollbar { display: none; }
+
+  .pdp-tab-btn {
+    flex: 1;
+    min-width: 130px;
+    padding: 0.75rem 0.5rem;
+    background: none;
+    border: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  .pdp-tab-btn.active {
+    font-weight: 700;
+    color: #4f46e5;
+    border-bottom-color: #4f46e5;
+  }
+
+  /* Tab content */
+  .pdp-tab-content {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: #f1f5f9;
+  }
+
+  /* Info section card */
+  .pdp-section-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+    border-left: 3px solid #4f46e5;
+  }
+  .pdp-section-card.warn { border-left-color: #f59e0b; }
+  .pdp-section-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #4f46e5;
+    margin-bottom: 0.35rem;
+  }
+  .pdp-section-card.warn .pdp-section-label { color: #b45309; }
+  .pdp-section-text {
+    font-size: 0.88rem;
+    color: #334155;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* Key-value chips */
+  .pdp-kv-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+  }
+  .pdp-kv-chip {
+    background: #fff;
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+  }
+  .pdp-kv-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #94a3b8;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+  .pdp-kv-value {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  /* Similar products grid */
+  .pdp-similar-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  @media (min-width: 480px) {
+    .pdp-similar-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (min-width: 700px) {
+    .pdp-similar-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  .pdp-sim-card {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+  }
+  .pdp-sim-card img {
+    width: 100%;
+    height: 90px;
+    object-fit: cover;
+    display: block;
+  }
+  .pdp-sim-body { padding: 0.6rem; }
+  .pdp-sim-name {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 0.15rem;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .pdp-sim-salt {
+    font-size: 0.65rem;
+    color: #64748b;
+    margin: 0 0 0.3rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pdp-sim-price {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #4f46e5;
+    margin: 0 0 0.5rem;
+  }
+  .pdp-sim-add-btn {
+    width: 100%;
+    padding: 0.4rem 0;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .pdp-sim-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #eef2ff;
+    border-radius: 8px;
+    padding: 0.2rem 0.35rem;
+  }
+  .pdp-sim-step-btn {
+    width: 26px; height: 26px;
+    background: #4f46e5; color: #fff;
+    border: none; border-radius: 6px;
+    font-weight: 700; font-size: 1rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Sticky bottom CTA bar */
+  .pdp-sticky-cta {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 100;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+  }
+  .pdp-sticky-price {
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: #0f172a;
+    flex: 1;
+  }
+  .pdp-sticky-price small {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: #94a3b8;
+  }
+  .pdp-sticky-add-btn {
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .pdp-sticky-add-btn:disabled {
+    background: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+  .pdp-sticky-stepper {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: #eef2ff;
+    border-radius: 12px;
+    padding: 0.5rem 0.75rem;
+    flex-shrink: 0;
+  }
+  .pdp-sticky-step-btn {
+    width: 34px; height: 34px;
+    background: #4f46e5; color: #fff;
+    border: none; border-radius: 8px;
+    font-weight: 700; font-size: 1.2rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Desktop: widen layout, hide sticky bar */
+  @media (min-width: 768px) {
+    .pdp-sticky-cta { display: none; }
+    .pdp-layout { padding-bottom: 0 !important; }
+    .pdp-image-block img { max-height: 340px; }
+    .pdp-similar-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+`;
+
+/* ─────────────────────────────────────────────────────
+   PRODUCT DETAIL PAGE
+───────────────────────────────────────────────────── */
+function ProductDetailPage({ product, allProducts, cart, onAddToCart, onDecrease, onBack }) {
+  const [activeTab, setActiveTab] = useState("details");
+
+  const similar = allProducts
+    .filter((p) => p.id !== product.id && p.category === product.category)
+    .slice(0, 8);
+
+  const cartItem = cart.find((i) => i.id === product.id);
+  const quantity = cartItem?.quantity || 0;
+
+  const imgSrc = product.image_url?.trim()
+    ? product.image_url
+    : "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=600&q=80";
+
+  const hasDiscount = product.discount && parseFloat(product.discount) > 0;
+  const mrp = hasDiscount
+    ? Math.round(product.price / (1 - parseFloat(product.discount) / 100))
+    : null;
+
+  return (
+    <>
+      <style>{GLOBAL_CSS}</style>
+      {/* Extra bottom padding so sticky CTA doesn't overlap content */}
+      <div className="pdp-layout" style={{ paddingBottom: 80 }}>
+
+        {/* ── Back bar ── */}
+        <div className="pdp-back-bar">
+          <button onClick={onBack} style={{ background: "none", border: "1px solid #e2e8f0", padding: "0.35rem 0.75rem", borderRadius: 8, fontWeight: 600, fontSize: "0.82rem", color: "#4f46e5", cursor: "pointer", flexShrink: 0 }}>
+            ← Back
+          </button>
+          <span style={{ fontSize: "0.75rem", color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {product.category} / {product.name}
+          </span>
+        </div>
+
+        {/* ── Product image ── */}
+        <div className="pdp-image-block">
+          {hasDiscount && (
+            <span style={{ position: "absolute", top: 12, right: 12, background: "#ef4444", color: "#fff", fontSize: "0.7rem", fontWeight: 700, padding: "0.2rem 0.55rem", borderRadius: 8 }}>
+              {product.discount}% OFF
+            </span>
+          )}
+          <img src={imgSrc} alt={product.name} />
+        </div>
+
+        {/* ── Product info ── */}
+        <div className="pdp-info-block">
+          <span style={{ display: "inline-block", background: "#e0e7ff", color: "#4f46e5", fontSize: "0.68rem", fontWeight: 700, padding: "0.2rem 0.55rem", borderRadius: 20 }}>
+            {product.category || "General"}
+          </span>
+          <h1 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
+            {product.name}
+          </h1>
+          <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+            <span style={{ fontWeight: 700, color: "#4f46e5" }}>Salt: </span>
+            {product.salt || "Standard Components"}
+          </div>
+          <span style={{ display: "inline-block", fontSize: "0.72rem", fontWeight: 700, padding: "0.2rem 0.55rem", borderRadius: 99, background: product.stock > 0 ? "#dcfce7" : "#fee2e2", color: product.stock > 0 ? "#15803d" : "#dc2626", alignSelf: "flex-start" }}>
+            {product.stock > 0 ? `✓ In Stock` : "✗ Out of Stock"}
+          </span>
+        </div>
+
+        {/* ── Price + desktop CTA (hidden on mobile via sticky bar) ── */}
+        <div className="pdp-cta-block" style={{ display: "none" }}>
+          {/* This block is for desktop; mobile uses sticky footer */}
+        </div>
+
+        {/* ── Tabs ── */}
+        <div className="pdp-tabs">
+          <button
+            className={`pdp-tab-btn${activeTab === "details" ? " active" : ""}`}
+            onClick={() => setActiveTab("details")}
+          >
+            Product Details
+          </button>
+          <button
+            className={`pdp-tab-btn${activeTab === "similar" ? " active" : ""}`}
+            onClick={() => setActiveTab("similar")}
+          >
+            Similar Products {similar.length > 0 && `(${similar.length})`}
+          </button>
+        </div>
+
+        {/* ── Tab content ── */}
+        <div className="pdp-tab-content">
+
+          {activeTab === "details" && (
+            <>
+              <div className="pdp-section-card">
+                <div className="pdp-section-label">Description</div>
+                <p className="pdp-section-text">
+                  {product.description || "Premium formula verified under Mecora distribution guidelines."}
+                </p>
+              </div>
+
+              {product.manufacturer && (
+                <div className="pdp-section-card">
+                  <div className="pdp-section-label">Manufacturer</div>
+                  <p className="pdp-section-text">{product.manufacturer}</p>
+                </div>
+              )}
+
+              {product.dosage && (
+                <div className="pdp-section-card">
+                  <div className="pdp-section-label">Dosage</div>
+                  <p className="pdp-section-text">{product.dosage}</p>
+                </div>
+              )}
+
+              {product.side_effects && (
+                <div className="pdp-section-card warn">
+                  <div className="pdp-section-label">⚠️ Side Effects</div>
+                  <p className="pdp-section-text">{product.side_effects}</p>
+                </div>
+              )}
+
+              <div className="pdp-kv-grid">
+                <div className="pdp-kv-chip">
+                  <span className="pdp-kv-label">Category</span>
+                  <span className="pdp-kv-value">{product.category || "General"}</span>
+                </div>
+                <div className="pdp-kv-chip">
+                  <span className="pdp-kv-label">Stock</span>
+                  <span className="pdp-kv-value">{product.stock ?? "N/A"}</span>
+                </div>
+                {product.expiry && (
+                  <div className="pdp-kv-chip">
+                    <span className="pdp-kv-label">Expiry</span>
+                    <span className="pdp-kv-value">{product.expiry}</span>
+                  </div>
+                )}
+                {product.batch && (
+                  <div className="pdp-kv-chip">
+                    <span className="pdp-kv-label">Batch No.</span>
+                    <span className="pdp-kv-value">{product.batch}</span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {activeTab === "similar" && (
+            <>
+              {similar.length === 0 ? (
+                <div style={{ textAlign: "center", color: "#94a3b8", fontSize: "0.9rem", padding: "2.5rem 0", background: "#fff", borderRadius: 12 }}>
+                  No similar products found in this category.
+                </div>
+              ) : (
+                <div className="pdp-similar-grid">
+                  {similar.map((sim) => {
+                    const sc = cart.find((i) => i.id === sim.id);
+                    const sq = sc?.quantity || 0;
+                    const si = sim.image_url?.trim()
+                      ? sim.image_url
+                      : "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=600&q=80";
+                    return (
+                      <div key={sim.id} className="pdp-sim-card">
+                        <img src={si} alt={sim.name} />
+                        <div className="pdp-sim-body">
+                          <p className="pdp-sim-name">{sim.name}</p>
+                          <p className="pdp-sim-salt">{sim.salt || "—"}</p>
+                          <p className="pdp-sim-price">₹{sim.price}</p>
+                          {sq === 0 ? (
+                            <button className="pdp-sim-add-btn" onClick={() => onAddToCart(sim)}>
+                              Add to Cart
+                            </button>
+                          ) : (
+                            <div className="pdp-sim-stepper">
+                              <button className="pdp-sim-step-btn" onClick={() => onDecrease(sim)}>−</button>
+                              <span style={{ fontWeight: 700, fontSize: "0.85rem", minWidth: 20, textAlign: "center" }}>{sq}</span>
+                              <button className="pdp-sim-step-btn" onClick={() => onAddToCart(sim)}>+</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Sticky bottom CTA bar (mobile) ── */}
+      <div className="pdp-sticky-cta">
+        <div className="pdp-sticky-price">
+          <small>
+            {hasDiscount ? `MRP ₹${mrp}` : "Price"}
+          </small>
+          ₹{product.price}
+          {quantity > 0 && (
+            <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 500, marginLeft: "0.4rem" }}>
+              × {quantity} = ₹{(product.price * quantity).toFixed(0)}
+            </span>
+          )}
+        </div>
+
+        {quantity === 0 ? (
+          <button
+            className="pdp-sticky-add-btn"
+            onClick={() => onAddToCart(product)}
+            disabled={product.stock <= 0}
+          >
+            {product.stock > 0 ? "🛒 Add to Cart" : "Out of Stock"}
+          </button>
+        ) : (
+          <div className="pdp-sticky-stepper">
+            <button className="pdp-sticky-step-btn" onClick={() => onDecrease(product)}>−</button>
+            <span style={{ fontWeight: 800, fontSize: "1rem", minWidth: 24, textAlign: "center" }}>{quantity}</span>
+            <button className="pdp-sticky-step-btn" onClick={() => onAddToCart(product)}>+</button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   MAIN DASHBOARD
+═══════════════════════════════════════════ */
 export default function ClientDashboard({
   products = [],
   cart = [],
@@ -19,444 +548,129 @@ export default function ClientDashboard({
   fetchOrders,
 }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
-  const [toast, setToast] = useState({ show: false, message: "" });
-  const [localProducts, setLocalProducts] = useState(products);
+  const [toast, setToast]                     = useState({ show: false, message: "" });
+  const [localProducts, setLocalProducts]     = useState(products);
 
-  useEffect(() => {
-    setLocalProducts(products);
-  }, [products]);
+  useEffect(() => { setLocalProducts(products); }, [products]);
 
   const profileName = user?.full_name || user?.first_name || "Operator";
 
-  // ========================================================
-  // PRODUCTS REALTIME SUBSCRIPTION
-  // ========================================================
   useEffect(() => {
-    const channelId = `schema-db-changes-${Math.random().toString(36).substr(2, 9)}`;
-    const channel = supabase
-      .channel(channelId)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "products" },
-        (payload) => {
-          setLocalProducts((prevProducts) => {
-            if (payload.eventType === "INSERT")
-              return [...prevProducts, payload.new];
-            if (payload.eventType === "UPDATE") {
-              return prevProducts.map((p) =>
-                p.id === payload.new.id ? payload.new : p
-              );
-            }
-            if (payload.eventType === "DELETE") {
-              return prevProducts.filter((p) => p.id !== payload.old.id);
-            }
-            return prevProducts;
-          });
-        }
-      );
-
-    channel.subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const id = `schema-db-changes-${Math.random().toString(36).substr(2, 9)}`;
+    const ch = supabase.channel(id).on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "products" },
+      (payload) => {
+        setLocalProducts((prev) => {
+          if (payload.eventType === "INSERT") return [...prev, payload.new];
+          if (payload.eventType === "UPDATE") return prev.map((p) => p.id === payload.new.id ? payload.new : p);
+          if (payload.eventType === "DELETE") return prev.filter((p) => p.id !== payload.old.id);
+          return prev;
+        });
+      }
+    );
+    ch.subscribe();
+    return () => supabase.removeChannel(ch);
   }, []);
 
-  // ========================================================
-  // ORDERS REALTIME SUBSCRIPTION
-  // ========================================================
   useEffect(() => {
-    const orderChannelId = `user-orders-channel-${Math.random().toString(36).substr(2, 9)}`;
-    const orderChannel = supabase
-      .channel(orderChannelId)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        (payload) => {
-          console.log("Realtime order stream updated:", payload);
-          if (typeof fetchOrders === "function") fetchOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(orderChannel);
-    };
+    const id = `user-orders-${Math.random().toString(36).substr(2, 9)}`;
+    const ch = supabase.channel(id).on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "orders" },
+      () => { if (typeof fetchOrders === "function") fetchOrders(); }
+    ).subscribe();
+    return () => supabase.removeChannel(ch);
   }, [fetchOrders]);
 
   const cartCount = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
-  const categories = [
-    "All",
-    "Antibiotics",
-    "Cardiovascular",
-    "Respiratory",
-    "OTC Supplements",
-    "Medicine",
-  ];
-
-  const formatProductName = (name) => {
-    if (!name) return "";
-    return name.includes("BeastLife Liposomal Vitamin C")
-      ? "BeastLife Liposomal Vitamin C"
-      : name;
-  };
+  const categories = ["All", "Antibiotics", "Cardiovascular", "Respiratory", "OTC Supplements", "Medicine"];
 
   const showToast = (message) => {
     setToast({ show: true, message });
     setTimeout(() => setToast({ show: false, message: "" }), 3000);
   };
 
-  const addToCart = (product, e) => {
-    if (e) e.stopPropagation();
+  const addToCart = (product) => {
     if (product.stock <= 0) return showToast("❌ Out of stock!");
-
-    const existing = cart.find((item) => item.id === product.id);
+    const existing = cart.find((i) => i.id === product.id);
     if (existing) {
-      setCart(
-        cart.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
-      );
+      setCart(cart.map((i) => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i));
     } else {
       setCart([...cart, { ...product, quantity: 1 }]);
     }
-    showToast(`🛒 Added ${formatProductName(product.name)} to cart!`);
+    showToast(`🛒 Added ${product.name} to cart!`);
   };
 
-  const decreaseFromCart = (product, e) => {
-    if (e) e.stopPropagation();
-    const existing = cart.find((item) => item.id === product.id);
+  const decreaseFromCart = (product) => {
+    const existing = cart.find((i) => i.id === product.id);
     if (!existing) return;
     if (existing.quantity === 1) {
-      setCart(cart.filter((item) => item.id !== product.id));
+      setCart(cart.filter((i) => i.id !== product.id));
     } else {
-      setCart(
-        cart.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity - 1 }
-            : item
-        )
-      );
+      setCart(cart.map((i) => i.id === product.id ? { ...i, quantity: i.quantity - 1 } : i));
     }
   };
 
-  // ========================================================
-  // REUSABLE QUANTITY STEPPER
-  // ========================================================
-  const QuantityStepper = ({ product, size = "md" }) => {
-    const cartItem = cart.find((item) => item.id === product.id);
+  const QuantityStepper = ({ product }) => {
+    const cartItem = cart.find((i) => i.id === product.id);
     const quantity = cartItem?.quantity || 0;
-
-    const isSmall = size === "sm";
-    const btnSize = isSmall ? "26px" : "32px";
-    const fontSize = isSmall ? "0.9rem" : "1rem";
-    const countSize = isSmall ? "0.85rem" : "1rem";
-
     if (quantity === 0) {
       return (
         <button
-          onClick={(e) => addToCart(product, e)}
-          style={{
-            backgroundColor: "#4f46e5",
-            color: "#ffffff",
-            border: "none",
-            padding: isSmall ? "0.5rem 0.85rem" : "0.75rem 1.5rem",
-            borderRadius: isSmall ? "8px" : "12px",
-            fontWeight: "700",
-            fontSize: isSmall ? "0.8rem" : "0.9rem",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Add to Cart
+          onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+          style={{ backgroundColor: "#4f46e5", color: "#fff", border: "none", padding: "0.5rem 0.85rem", borderRadius: "8px", fontWeight: "700", fontSize: "0.8rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+          Add
         </button>
       );
     }
-
     return (
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          background: "#eef2ff",
-          borderRadius: isSmall ? "8px" : "12px",
-          padding: isSmall ? "0.3rem 0.5rem" : "0.4rem 0.6rem",
-        }}
-      >
-        <button
-          onClick={(e) => decreaseFromCart(product, e)}
-          style={{
-            width: btnSize,
-            height: btnSize,
-            borderRadius: "6px",
-            border: "none",
-            background: "#4f46e5",
-            color: "#fff",
-            fontWeight: "700",
-            fontSize: fontSize,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            lineHeight: 1,
-          }}
-        >
-          −
-        </button>
-
-        <span
-          style={{
-            fontWeight: "700",
-            fontSize: countSize,
-            minWidth: "18px",
-            textAlign: "center",
-            color: "#0f172a",
-          }}
-        >
-          {quantity}
-        </span>
-
-        <button
-          onClick={(e) => addToCart(product, e)}
-          style={{
-            width: btnSize,
-            height: btnSize,
-            borderRadius: "6px",
-            border: "none",
-            background: "#4f46e5",
-            color: "#fff",
-            fontWeight: "700",
-            fontSize: fontSize,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            lineHeight: 1,
-          }}
-        >
-          +
-        </button>
+      <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#eef2ff", borderRadius: "8px", padding: "0.25rem 0.4rem" }}>
+        <button onClick={(e) => { e.stopPropagation(); decreaseFromCart(product); }} style={{ width: 24, height: 24, borderRadius: "5px", border: "none", background: "#4f46e5", color: "#fff", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>−</button>
+        <span style={{ fontWeight: "700", fontSize: "0.85rem", minWidth: 16, textAlign: "center" }}>{quantity}</span>
+        <button onClick={(e) => { e.stopPropagation(); addToCart(product); }} style={{ width: 24, height: 24, borderRadius: "5px", border: "none", background: "#4f46e5", color: "#fff", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>+</button>
       </div>
     );
   };
 
-  // ========================================================
-  // NAVBAR HEADER BLOCK
-  // ========================================================
+  /* ── NAVBAR ONLY ── */
   if (isNavbarOnly) {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          background: "#ffffff",
-          borderBottom: "1px solid #e2e8f0",
-          width: "100%",
-        }}
-      >
-        <header
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "1rem",
-            fontFamily: "system-ui, sans-serif",
-            boxSizing: "border-box",
-            gap: "1rem",
-          }}
-        >
-          <div
-            style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
-          >
-            <span
-              onClick={() => setCurrentView("products")}
-              style={{
-                fontSize: "1.25rem",
-                fontWeight: "900",
-                letterSpacing: "2px",
-                color: "#4f46e5",
-                cursor: "pointer",
-              }}
-            >
-              MECORA
-            </span>
-            <span
-              style={{
-                fontSize: "0.7rem",
-                fontWeight: "700",
-                color: "#4f46e5",
-                background: "#e0e7ff",
-                padding: "0.2rem 0.5rem",
-                borderRadius: "6px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {role === "admin"
-                ? "🛡️ ADMIN"
-                : `👤 ${profileName.toUpperCase()}`}
+      <div style={{ display: "flex", flexDirection: "column", background: "#fff", borderBottom: "1px solid #e2e8f0", width: "100%" }}>
+        <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", fontFamily: "system-ui, sans-serif", gap: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <span onClick={() => { setCurrentView("products"); setSelectedProduct(null); }} style={{ fontSize: "1.2rem", fontWeight: "900", letterSpacing: "2px", color: "#4f46e5", cursor: "pointer" }}>MECORA</span>
+            <span style={{ fontSize: "0.65rem", fontWeight: "700", color: "#4f46e5", background: "#e0e7ff", padding: "0.2rem 0.45rem", borderRadius: "6px", whiteSpace: "nowrap" }}>
+              {role === "admin" ? "🛡️ ADMIN" : `👤 ${profileName.toUpperCase()}`}
             </span>
           </div>
-
-          <nav
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              flexWrap: "wrap",
-            }}
-          >
-            <button
-              onClick={() => setCurrentView("products")}
-              style={{
-                background: "none",
-                border: "none",
-                color: currentView === "products" ? "#4f46e5" : "#475569",
-                fontWeight: currentView === "products" ? "700" : "500",
-                fontSize: "0.85rem",
-                cursor: "pointer",
-                padding: "0.25rem 0.5rem",
-              }}
-            >
-              Products
-            </button>
-            <button
-              onClick={() => setCurrentView("orders")}
-              style={{
-                background: "none",
-                border: "none",
-                color: currentView === "orders" ? "#4f46e5" : "#475569",
-                fontWeight: currentView === "orders" ? "700" : "500",
-                fontSize: "0.85rem",
-                cursor: "pointer",
-                padding: "0.25rem 0.5rem",
-              }}
-            >
-              Orders
-            </button>
+          <nav style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+            {["products", "orders"].map((view) => (
+              <button key={view} onClick={() => { setCurrentView(view); setSelectedProduct(null); }}
+                style={{ background: "none", border: "none", color: currentView === view ? "#4f46e5" : "#475569", fontWeight: currentView === view ? "700" : "500", fontSize: "0.82rem", cursor: "pointer", padding: "0.25rem 0.4rem", textTransform: "capitalize" }}>
+                {view.charAt(0).toUpperCase() + view.slice(1)}
+              </button>
+            ))}
             {role !== "admin" && (
-              <button
-                onClick={() => setCurrentView("cart")}
-                style={{
-                  border: "none",
-                  background: currentView === "cart" ? "#eff6ff" : "none",
-                  color: currentView === "cart" ? "#1e40af" : "#475569",
-                  fontWeight: "600",
-                  fontSize: "0.85rem",
-                  cursor: "pointer",
-                  padding: "0.3rem 0.6rem",
-                  borderRadius: "8px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                🛒 Cart{" "}
-                <span
-                  style={{
-                    background: "#4f46e5",
-                    color: "#ffffff",
-                    fontSize: "0.65rem",
-                    padding: "1px 5px",
-                    borderRadius: "99px",
-                  }}
-                >
-                  {cartCount}
-                </span>
+              <button onClick={() => setCurrentView("cart")}
+                style={{ border: "none", background: currentView === "cart" ? "#eff6ff" : "none", color: currentView === "cart" ? "#1e40af" : "#475569", fontWeight: "600", fontSize: "0.82rem", cursor: "pointer", padding: "0.25rem 0.5rem", borderRadius: "8px", display: "flex", alignItems: "center", gap: "3px" }}>
+                🛒<span style={{ background: "#4f46e5", color: "#fff", fontSize: "0.6rem", padding: "1px 5px", borderRadius: "99px" }}>{cartCount}</span>
               </button>
             )}
-            <button
-              onClick={() => setCurrentView("profile")}
-              style={{
-                background: "none",
-                border: "none",
-                color: currentView === "profile" ? "#4f46e5" : "#475569",
-                fontWeight: currentView === "profile" ? "700" : "500",
-                fontSize: "0.85rem",
-                cursor: "pointer",
-                padding: "0.25rem 0.5rem",
-              }}
-            >
-              Profile
-            </button>
-            <button
-              onClick={onLogout}
-              style={{
-                backgroundColor: "#fef2f2",
-                border: "none",
-                color: "#991b1b",
-                fontWeight: "600",
-                fontSize: "0.8rem",
-                padding: "0.35rem 0.7rem",
-                borderRadius: "8px",
-                cursor: "pointer",
-              }}
-            >
-              Sign Out
-            </button>
+            <button onClick={() => setCurrentView("profile")} style={{ background: "none", border: "none", color: currentView === "profile" ? "#4f46e5" : "#475569", fontWeight: currentView === "profile" ? "700" : "500", fontSize: "0.82rem", cursor: "pointer", padding: "0.25rem 0.4rem" }}>Profile</button>
+            <button onClick={onLogout} style={{ backgroundColor: "#fef2f2", border: "none", color: "#991b1b", fontWeight: "600", fontSize: "0.78rem", padding: "0.3rem 0.6rem", borderRadius: "8px", cursor: "pointer" }}>Sign Out</button>
           </nav>
         </header>
 
         {currentView === "products" && role !== "admin" && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              padding: "0.75rem 1rem",
-              gap: "0.75rem",
-              borderTop: "1px solid #f1f5f9",
-            }}
-          >
-            <div style={{ width: "100%" }}>
-              <input
-                type="text"
-                placeholder="🔍 Search items, salt, or label..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "0.55rem 0.9rem",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "10px",
-                  outline: "none",
-                  fontSize: "0.9rem",
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
-            <div
-              style={{
-                display: "flex",
-                gap: "0.4rem",
-                overflowX: "auto",
-                paddingBottom: "4px",
-                width: "100%",
-                WebkitOverflowScrolling: "touch",
-              }}
-            >
+          <div style={{ display: "flex", flexDirection: "column", padding: "0.6rem 1rem", gap: "0.6rem", borderTop: "1px solid #f1f5f9" }}>
+            <input type="text" placeholder="🔍 Search items, salt, or label..." value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ width: "100%", padding: "0.5rem 0.85rem", border: "1px solid #e2e8f0", borderRadius: "10px", outline: "none", fontSize: "0.88rem" }} />
+            <div style={{ display: "flex", gap: "0.35rem", overflowX: "auto", paddingBottom: "3px", WebkitOverflowScrolling: "touch" }}>
               {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setLocalCategory(cat)}
-                  style={{
-                    padding: "0.4rem 0.9rem",
-                    borderRadius: "99px",
-                    fontSize: "0.75rem",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    backgroundColor:
-                      localCategory === cat ? "#4f46e5" : "#f1f5f9",
-                    border: "none",
-                    color: localCategory === cat ? "#ffffff" : "#475569",
-                  }}
-                >
+                <button key={cat} onClick={() => setLocalCategory(cat)}
+                  style={{ padding: "0.35rem 0.85rem", borderRadius: "99px", fontSize: "0.73rem", fontWeight: "600", cursor: "pointer", flexShrink: 0, backgroundColor: localCategory === cat ? "#4f46e5" : "#f1f5f9", border: "none", color: localCategory === cat ? "#fff" : "#475569" }}>
                   {cat}
                 </button>
               ))}
@@ -467,333 +681,73 @@ export default function ClientDashboard({
     );
   }
 
+  /* ── PRODUCT DETAIL PAGE ── */
+  if (selectedProduct) {
+    return (
+      <>
+        <ProductDetailPage
+          product={selectedProduct}
+          allProducts={localProducts}
+          cart={cart}
+          onAddToCart={addToCart}
+          onDecrease={decreaseFromCart}
+          onBack={() => setSelectedProduct(null)}
+        />
+        {toast.show && <div className="toast-popup">{toast.message}</div>}
+      </>
+    );
+  }
+
+  /* ── PRODUCT GRID ── */
   const lowercaseQuery = searchQuery.toLowerCase();
   const filteredProducts = localProducts.filter((product) => {
-    const matchesCategory =
-      localCategory === "All" || product.category === localCategory;
-    return (
-      matchesCategory &&
-      (product.name?.toLowerCase().includes(lowercaseQuery) ||
-        product.category?.toLowerCase().includes(lowercaseQuery) ||
-        product.description?.toLowerCase().includes(lowercaseQuery) ||
-        product.salt?.toLowerCase().includes(lowercaseQuery))
+    const matchesCategory = localCategory === "All" || product.category === localCategory;
+    return matchesCategory && (
+      product.name?.toLowerCase().includes(lowercaseQuery) ||
+      product.category?.toLowerCase().includes(lowercaseQuery) ||
+      product.description?.toLowerCase().includes(lowercaseQuery) ||
+      product.salt?.toLowerCase().includes(lowercaseQuery)
     );
   });
 
   return (
     <div className="dashboard-container">
       {toast.show && <div className="toast-popup">{toast.message}</div>}
-
       <div className="products-grid">
         {filteredProducts.map((product) => {
           const productImgSrc = product.image_url?.trim()
             ? product.image_url
             : "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=600&q=80";
-
           return (
-            <div
-              key={product.id}
-              className="product-card"
-              onClick={(e) => {
-                setModalPosition({ top: e.clientY, left: e.clientX });
-                setSelectedProduct(product);
-              }}
-            >
+            <div key={product.id} className="product-card" onClick={() => setSelectedProduct(product)} style={{ cursor: "pointer" }}>
               {product.discount && parseFloat(product.discount) > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "12px",
-                    right: "12px",
-                    zIndex: 5,
-                    background: "#ef4444",
-                    color: "#ffffff",
-                    padding: "0.25rem 0.6rem",
-                    borderRadius: "8px",
-                    fontSize: "0.7rem",
-                    fontWeight: "700",
-                  }}
-                >
+                <span style={{ position: "absolute", top: "10px", right: "10px", zIndex: 5, background: "#ef4444", color: "#fff", padding: "0.2rem 0.5rem", borderRadius: "7px", fontSize: "0.68rem", fontWeight: "700" }}>
                   {product.discount}% OFF
                 </span>
               )}
-
-              <div
-                style={{
-                  width: "100%",
-                  height: "160px",
-                  position: "relative",
-                  overflow: "hidden",
-                  background: "#f8fafc",
-                }}
-              >
-                <img
-                  src={productImgSrc}
-                  alt={product.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "12px",
-                    left: "12px",
-                    background: "rgba(255, 255, 255, 0.95)",
-                    padding: "0.2rem 0.5rem",
-                    borderRadius: "20px",
-                    fontSize: "0.7rem",
-                    fontWeight: "700",
-                    color: "#4f46e5",
-                  }}
-                >
+              <div style={{ width: "100%", height: "150px", position: "relative", overflow: "hidden", background: "#f8fafc" }}>
+                <img src={productImgSrc} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <span style={{ position: "absolute", top: "10px", left: "10px", background: "rgba(255,255,255,0.95)", padding: "0.15rem 0.45rem", borderRadius: "20px", fontSize: "0.65rem", fontWeight: "700", color: "#4f46e5" }}>
                   {product.category || "General"}
                 </span>
               </div>
-
-              <div
-                style={{
-                  padding: "1rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  flexGrow: 1,
-                  justifyContent: "space-between",
-                }}
-              >
-                <div style={{ marginBottom: "1rem" }}>
-                  <h4
-                    style={{
-                      margin: "0 0 0.2rem 0",
-                      fontWeight: "700",
-                      color: "#0f172a",
-                    }}
-                  >
-                    {formatProductName(product.name)}
-                  </h4>
-                  <div
-                    style={{
-                      fontSize: "0.7rem",
-                      fontWeight: "600",
-                      color: "#4f46e5",
-                      marginBottom: "0.4rem",
-                    }}
-                  >
-                    Abram 🧪 {product.salt || "Standard Components"}
-                  </div>
-                  <p
-                    style={{
-                      margin: "0",
-                      fontSize: "0.8rem",
-                      color: "#64748b",
-                      lineHeight: "1.4",
-                      display: "-webkit-box",
-                      WebkitLineClamp: "2",
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {product.description ||
-                      "Premium formula verified under Mecora distribution guidelines."}
+              <div style={{ padding: "0.75rem", display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "space-between" }}>
+                <div style={{ marginBottom: "0.75rem" }}>
+                  <h4 style={{ margin: "0 0 0.15rem", fontWeight: "700", color: "#0f172a", fontSize: "0.88rem" }}>{product.name}</h4>
+                  <div style={{ fontSize: "0.65rem", fontWeight: "600", color: "#4f46e5", marginBottom: "0.35rem" }}>🧪 {product.salt || "Standard Components"}</div>
+                  <p style={{ margin: "0", fontSize: "0.75rem", color: "#64748b", lineHeight: "1.4", display: "-webkit-box", WebkitLineClamp: "2", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {product.description || "Premium formula verified under Mecora distribution guidelines."}
                   </p>
                 </div>
-
-                {/* PRICE + STEPPER ROW */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "1.2rem",
-                      fontWeight: "800",
-                      color: "#0f172a",
-                    }}
-                  >
-                    ₹{product.price}
-                  </span>
-
-                  {/* QUANTITY STEPPER (small variant for card) */}
-                  <QuantityStepper product={product} size="sm" />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px" }}>
+                  <span style={{ fontSize: "1.05rem", fontWeight: "800", color: "#0f172a" }}>₹{product.price}</span>
+                  <QuantityStepper product={product} />
                 </div>
               </div>
             </div>
           );
         })}
       </div>
-
-      {/* DETAIL MODAL DRAWER */}
-      {selectedProduct && (
-        <div
-          onClick={() => setSelectedProduct(null)}
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(15, 23, 42, 0.6)",
-            backdropFilter: "blur(8px)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#ffffff",
-              width: "90%",
-              maxWidth: "500px",
-              borderRadius: "24px",
-              overflow: "hidden",
-              position: "relative",
-              display: "flex",
-              flexDirection: "column",
-              maxHeight: "80vh",
-            }}
-          >
-            <button
-              onClick={() => setSelectedProduct(null)}
-              style={{
-                position: "absolute",
-                top: "12px",
-                right: "12px",
-                zIndex: 10,
-                width: "30px",
-                height: "30px",
-                borderRadius: "50%",
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                cursor: "pointer",
-                fontWeight: "bold",
-                color: "#64748b",
-              }}
-            >
-              ✕
-            </button>
-
-            <div style={{ overflowY: "auto", padding: "1rem" }}>
-              <div
-                style={{
-                  width: "100%",
-                  height: "200px",
-                  background: "#f8fafc",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "16px",
-                  position: "relative",
-                  marginBottom: "1rem",
-                }}
-              >
-                <img
-                  src={
-                    selectedProduct.image_url ||
-                    "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=600&q=80"
-                  }
-                  alt={selectedProduct.name}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    padding: "0.5rem",
-                  }}
-                />
-              </div>
-
-              <span
-                style={{
-                  background: "#e0e7ff",
-                  color: "#4f46e5",
-                  fontSize: "0.7rem",
-                  fontWeight: "700",
-                  padding: "0.25rem 0.6rem",
-                  borderRadius: "6px",
-                  display: "inline-block",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                {selectedProduct.category || "OTC Supplements"}
-              </span>
-
-              <h2
-                style={{
-                  fontSize: "1.25rem",
-                  fontWeight: "800",
-                  color: "#0f172a",
-                  margin: "0 0 0.5rem 0",
-                }}
-              >
-                {formatProductName(selectedProduct.name)}
-              </h2>
-
-              <div
-                style={{
-                  fontSize: "0.8rem",
-                  fontWeight: "700",
-                  color: "#4f46e5",
-                  marginBottom: "1rem",
-                }}
-              >
-                Salt Component:{" "}
-                <span style={{ color: "#0f172a", fontWeight: "500" }}>
-                  {selectedProduct.salt || "Standard Tech Specs"}
-                </span>
-              </div>
-
-              <p
-                style={{
-                  fontSize: "0.85rem",
-                  color: "#64748b",
-                  lineHeight: "1.5",
-                  margin: "0 0 1.5rem 0",
-                }}
-              >
-                {selectedProduct.description ||
-                  "Premium formula verified under Mecora distribution guidelines."}
-              </p>
-            </div>
-
-            {/* MODAL FOOTER — price + stepper (large variant) */}
-            <div
-              style={{
-                padding: "1rem",
-                borderTop: "1px solid #e2e8f0",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <span
-                  style={{
-                    fontSize: "0.7rem",
-                    color: "#64748b",
-                    display: "block",
-                  }}
-                >
-                  Price
-                </span>
-                <span
-                  style={{
-                    fontSize: "1.4rem",
-                    fontWeight: "900",
-                    color: "#0f172a",
-                  }}
-                >
-                  ₹{selectedProduct.price}
-                </span>
-              </div>
-
-              {/* QUANTITY STEPPER (large variant for modal) */}
-              <QuantityStepper product={selectedProduct} size="lg" />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
