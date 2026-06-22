@@ -436,6 +436,7 @@ export default function App() {
     setLoading(true);
     try {
       if (isRegistering) {
+        // --- Existing Registration Logic ---
         const { data: authData, error: signUpError } =
           await supabase.auth.signUp({
             email: email.trim(),
@@ -452,9 +453,6 @@ export default function App() {
           });
         if (signUpError) throw signUpError;
 
-        // REMOVED: The manual .upsert() block.
-        // The Database Trigger handles this automatically now.
-
         setFirstName("");
         setLastName("");
         setMobile("");
@@ -464,10 +462,19 @@ export default function App() {
         setIsRegistering(false);
         alert("🎉 Account created successfully! Please sign in.");
       } else {
-        // ... your existing login logic
+        // --- ADDED: Sign In Logic ---
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: loginIdentifier.trim(),
+          password: password,
+        });
+
+        if (error) throw error;
+        
+        // No need to manually set user; onAuthStateChange handles it!
+        alert("Successfully signed in!");
       }
     } catch (err) {
-      alert(err.message);
+      alert("Error: " + err.message);
     } finally {
       setLoading(false);
     }
