@@ -11,7 +11,7 @@ export default function ClientDashboard({
   currentView,
   setCurrentView,
   role = "customer",
-  user, // Reading current single source of truth directly from App level props
+  user,
   onLogout,
   localCategory = "All",
   setLocalCategory,
@@ -19,7 +19,7 @@ export default function ClientDashboard({
   fetchOrders,
 }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 }); // Track X/Y
+  const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
   const [toast, setToast] = useState({ show: false, message: "" });
   const [localProducts, setLocalProducts] = useState(products);
 
@@ -27,11 +27,10 @@ export default function ClientDashboard({
     setLocalProducts(products);
   }, [products]);
 
-  // Derived variable using incoming user object directly to prevent hardcoded overrides
   const profileName = user?.full_name || user?.first_name || "Operator";
 
   // ========================================================
-  // STRICTOR-SAFE PRODUCTS REALTIME SUBSCRIPTION
+  // PRODUCTS REALTIME SUBSCRIPTION
   // ========================================================
   useEffect(() => {
     const channelId = `schema-db-changes-${Math.random().toString(36).substr(2, 9)}`;
@@ -46,7 +45,7 @@ export default function ClientDashboard({
               return [...prevProducts, payload.new];
             if (payload.eventType === "UPDATE") {
               return prevProducts.map((p) =>
-                p.id === payload.new.id ? payload.new : p,
+                p.id === payload.new.id ? payload.new : p
               );
             }
             if (payload.eventType === "DELETE") {
@@ -54,7 +53,7 @@ export default function ClientDashboard({
             }
             return prevProducts;
           });
-        },
+        }
       );
 
     channel.subscribe();
@@ -64,11 +63,10 @@ export default function ClientDashboard({
   }, []);
 
   // ========================================================
-  // STRICTOR-SAFE ORDERS REALTIME SUBSCRIPTION
+  // ORDERS REALTIME SUBSCRIPTION
   // ========================================================
   useEffect(() => {
     const orderChannelId = `user-orders-channel-${Math.random().toString(36).substr(2, 9)}`;
-
     const orderChannel = supabase
       .channel(orderChannelId)
       .on(
@@ -77,7 +75,7 @@ export default function ClientDashboard({
         (payload) => {
           console.log("Realtime order stream updated:", payload);
           if (typeof fetchOrders === "function") fetchOrders();
-        },
+        }
       )
       .subscribe();
 
@@ -118,13 +116,134 @@ export default function ClientDashboard({
         cart.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
-            : item,
-        ),
+            : item
+        )
       );
     } else {
       setCart([...cart, { ...product, quantity: 1 }]);
     }
     showToast(`🛒 Added ${formatProductName(product.name)} to cart!`);
+  };
+
+  const decreaseFromCart = (product, e) => {
+    if (e) e.stopPropagation();
+    const existing = cart.find((item) => item.id === product.id);
+    if (!existing) return;
+    if (existing.quantity === 1) {
+      setCart(cart.filter((item) => item.id !== product.id));
+    } else {
+      setCart(
+        cart.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity - 1 }
+            : item
+        )
+      );
+    }
+  };
+
+  // ========================================================
+  // REUSABLE QUANTITY STEPPER
+  // ========================================================
+  const QuantityStepper = ({ product, size = "md" }) => {
+    const cartItem = cart.find((item) => item.id === product.id);
+    const quantity = cartItem?.quantity || 0;
+
+    const isSmall = size === "sm";
+    const btnSize = isSmall ? "26px" : "32px";
+    const fontSize = isSmall ? "0.9rem" : "1rem";
+    const countSize = isSmall ? "0.85rem" : "1rem";
+
+    if (quantity === 0) {
+      return (
+        <button
+          onClick={(e) => addToCart(product, e)}
+          style={{
+            backgroundColor: "#4f46e5",
+            color: "#ffffff",
+            border: "none",
+            padding: isSmall ? "0.5rem 0.85rem" : "0.75rem 1.5rem",
+            borderRadius: isSmall ? "8px" : "12px",
+            fontWeight: "700",
+            fontSize: isSmall ? "0.8rem" : "0.9rem",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Add to Cart
+        </button>
+      );
+    }
+
+    return (
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          background: "#eef2ff",
+          borderRadius: isSmall ? "8px" : "12px",
+          padding: isSmall ? "0.3rem 0.5rem" : "0.4rem 0.6rem",
+        }}
+      >
+        <button
+          onClick={(e) => decreaseFromCart(product, e)}
+          style={{
+            width: btnSize,
+            height: btnSize,
+            borderRadius: "6px",
+            border: "none",
+            background: "#4f46e5",
+            color: "#fff",
+            fontWeight: "700",
+            fontSize: fontSize,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            lineHeight: 1,
+          }}
+        >
+          −
+        </button>
+
+        <span
+          style={{
+            fontWeight: "700",
+            fontSize: countSize,
+            minWidth: "18px",
+            textAlign: "center",
+            color: "#0f172a",
+          }}
+        >
+          {quantity}
+        </span>
+
+        <button
+          onClick={(e) => addToCart(product, e)}
+          style={{
+            width: btnSize,
+            height: btnSize,
+            borderRadius: "6px",
+            border: "none",
+            background: "#4f46e5",
+            color: "#fff",
+            fontWeight: "700",
+            fontSize: fontSize,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            lineHeight: 1,
+          }}
+        >
+          +
+        </button>
+      </div>
+    );
   };
 
   // ========================================================
@@ -373,13 +492,12 @@ export default function ClientDashboard({
 
           return (
             <div
+              key={product.id}
               className="product-card"
               onClick={(e) => {
-                // Get the click position relative to the viewport
                 setModalPosition({ top: e.clientY, left: e.clientX });
                 setSelectedProduct(product);
               }}
-              // ... rest of your styling
             >
               {product.discount && parseFloat(product.discount) > 0 && (
                 <span
@@ -477,6 +595,7 @@ export default function ClientDashboard({
                   </p>
                 </div>
 
+                {/* PRICE + STEPPER ROW */}
                 <div
                   style={{
                     display: "flex",
@@ -494,22 +613,9 @@ export default function ClientDashboard({
                   >
                     ₹{product.price}
                   </span>
-                  <button
-                    onClick={(e) => addToCart(product, e)}
-                    style={{
-                      backgroundColor: "#4f46e5",
-                      color: "#ffffff",
-                      border: "none",
-                      padding: "0.5rem 0.85rem",
-                      borderRadius: "8px",
-                      fontWeight: "600",
-                      fontSize: "0.8rem",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    Add to Cart
-                  </button>
+
+                  {/* QUANTITY STEPPER (small variant for card) */}
+                  <QuantityStepper product={product} size="sm" />
                 </div>
               </div>
             </div>
@@ -651,6 +757,7 @@ export default function ClientDashboard({
               </p>
             </div>
 
+            {/* MODAL FOOTER — price + stepper (large variant) */}
             <div
               style={{
                 padding: "1rem",
@@ -680,24 +787,9 @@ export default function ClientDashboard({
                   ₹{selectedProduct.price}
                 </span>
               </div>
-              <button
-                onClick={(e) => {
-                  addToCart(selectedProduct, e);
-                  setSelectedProduct(null);
-                }}
-                style={{
-                  backgroundColor: "#4f46e5",
-                  color: "#ffffff",
-                  border: "none",
-                  padding: "0.75rem 1.5rem",
-                  borderRadius: "12px",
-                  fontWeight: "700",
-                  fontSize: "0.9rem",
-                  cursor: "pointer",
-                }}
-              >
-                Add To Basket
-              </button>
+
+              {/* QUANTITY STEPPER (large variant for modal) */}
+              <QuantityStepper product={selectedProduct} size="lg" />
             </div>
           </div>
         </div>
