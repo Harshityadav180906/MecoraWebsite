@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabaseClient";
 import AdminDashboard from "./components/AdminDashboard";
 import ClientDashboard from "./components/ClientDashboard";
@@ -13,16 +13,143 @@ const slidingImages = [
   "https://images.unsplash.com/photo-1517976487492-5750f3195933?auto=format&fit=crop&w=1200&q=80",
 ];
 
-// ==========================================
-// Responsive styles for the auth (sign-in / register) screen.
-// Inline `style={{}}` props can't contain media queries, so the layout
-// that needs to *change shape* at breakpoints (two columns -> stacked,
-// large padding -> compact padding, big type -> smaller type) lives here
-// instead, scoped under .auth-page so it can't leak into the rest of the
-// app. Anything that depends on component state (the sliding background
-// image, the active dot) stays as an inline style since CSS can't read
-// React state.
-// ==========================================
+// ─────────────────────────────────────────────
+// Toast system
+// ─────────────────────────────────────────────
+const TOAST_ICONS = {
+  success: (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="10" fill="#22c55e" />
+      <path d="M6 10.5l3 3 5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  error: (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="10" fill="#ef4444" />
+      <path d="M7 7l6 6M13 7l-6 6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  ),
+  info: (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="10" fill="#4f46e5" />
+      <path d="M10 9v5M10 7v.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ),
+  warning: (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="10" fill="#f59e0b" />
+      <path d="M10 6v5M10 13v.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ),
+};
+
+const toastContainerStyle = {
+  position: "fixed",
+  top: "1.25rem",
+  right: "1.25rem",
+  zIndex: 99999,
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.6rem",
+  pointerEvents: "none",
+  maxWidth: "min(380px, calc(100vw - 2.5rem))",
+};
+
+function Toast({ id, type = "info", message, onDismiss }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    // mount → slide-in
+    const showTimer = setTimeout(() => setVisible(true), 10);
+    // auto-dismiss after 3.5 s
+    const hideTimer = setTimeout(() => {
+      setVisible(false);
+      setTimeout(() => onDismiss(id), 350);
+    }, 3500);
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, [id, onDismiss]);
+
+  const accent = {
+    success: "#22c55e",
+    error:   "#ef4444",
+    info:    "#4f46e5",
+    warning: "#f59e0b",
+  }[type];
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "0.75rem",
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderLeft: `4px solid ${accent}`,
+        borderRadius: "14px",
+        padding: "0.85rem 1rem",
+        boxShadow: "0 8px 30px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)",
+        pointerEvents: "all",
+        cursor: "pointer",
+        transform: visible ? "translateX(0)" : "translateX(calc(100% + 2rem))",
+        opacity: visible ? 1 : 0,
+        transition: "transform 0.35s cubic-bezier(0.22,1,0.36,1), opacity 0.3s ease",
+        boxSizing: "border-box",
+        width: "100%",
+      }}
+      onClick={() => {
+        setVisible(false);
+        setTimeout(() => onDismiss(id), 350);
+      }}
+    >
+      <div style={{ flexShrink: 0, marginTop: "1px" }}>{TOAST_ICONS[type]}</div>
+      <p
+        style={{
+          margin: 0,
+          fontSize: "0.875rem",
+          fontWeight: 500,
+          color: "#0f172a",
+          lineHeight: 1.5,
+          fontFamily: "system-ui, -apple-system, sans-serif",
+        }}
+      >
+        {message}
+      </p>
+    </div>
+  );
+}
+
+function ToastContainer({ toasts, onDismiss }) {
+  return (
+    <div style={toastContainerStyle}>
+      {toasts.map((t) => (
+        <Toast key={t.id} {...t} onDismiss={onDismiss} />
+      ))}
+    </div>
+  );
+}
+
+// Hook – call useToast() inside App, then pass `notify` down or use a ref/context
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+
+  const notify = useCallback((message, type = "info") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, message, type }]);
+  }, []);
+
+  const dismiss = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  return { toasts, notify, dismiss };
+}
+
+// ─────────────────────────────────────────────
+// Responsive auth styles
+// ─────────────────────────────────────────────
 const authResponsiveStyles = `
   .auth-page {
     display: flex;
@@ -82,14 +209,9 @@ const authResponsiveStyles = `
     margin: 0;
   }
 
-  .auth-headline span {
-    color: #4f46e5;
-  }
+  .auth-headline span { color: #4f46e5; }
 
-  .auth-dots {
-    display: flex;
-    gap: 0.6rem;
-  }
+  .auth-dots { display: flex; gap: 0.6rem; }
 
   .auth-dot {
     width: 8px;
@@ -109,7 +231,7 @@ const authResponsiveStyles = `
     padding: 3.5rem;
     background-color: #ffffff;
     box-sizing: border-box;
-    min-width: 0; /* prevents flex children from forcing horizontal overflow */
+    min-width: 0;
   }
 
   .auth-right h2 {
@@ -118,11 +240,7 @@ const authResponsiveStyles = `
     margin: 0 0 1.5rem 0;
   }
 
-  .auth-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.1rem;
-  }
+  .auth-form { display: flex; flex-direction: column; gap: 1.1rem; }
 
   .auth-form input {
     border: 1px solid #e2e8f0;
@@ -133,15 +251,8 @@ const authResponsiveStyles = `
     box-sizing: border-box;
   }
 
-  .auth-address-row {
-    display: flex;
-    gap: 6px;
-  }
-
-  .auth-address-row input {
-    flex: 1;
-    min-width: 0;
-  }
+  .auth-address-row { display: flex; gap: 6px; }
+  .auth-address-row input { flex: 1; min-width: 0; }
 
   .auth-gps-btn {
     padding: 0 1rem;
@@ -167,87 +278,41 @@ const authResponsiveStyles = `
     cursor: pointer;
   }
 
-  .auth-toggle {
-    margin-top: 1rem;
-    font-size: 0.9rem;
-    text-align: center;
-  }
+  .auth-toggle { margin-top: 1rem; font-size: 0.9rem; text-align: center; }
+  .auth-toggle span { color: #4f46e5; cursor: pointer; }
 
-  .auth-toggle span {
-    color: #4f46e5;
-    cursor: pointer;
-  }
-
-  /* ---------- Tablet ---------- */
   @media (max-width: 860px) {
-    .auth-page {
-      padding: 1.25rem;
-    }
-    .auth-left {
-      padding: 3rem 2.25rem;
-    }
-    .auth-right {
-      padding: 2.5rem;
-    }
-    .auth-headline {
-      font-size: 2.25rem;
-    }
+    .auth-page { padding: 1.25rem; }
+    .auth-left { padding: 3rem 2.25rem; }
+    .auth-right { padding: 2.5rem; }
+    .auth-headline { font-size: 2.25rem; }
   }
 
-  /* ---------- Phone: stack the two panels ---------- */
   @media (max-width: 640px) {
-    .auth-page {
-      padding: 0;
-      align-items: flex-start;
-    }
-    .auth-card {
-      flex-direction: column;
-      max-width: 100%;
-      border-radius: 0;
-      min-height: 100vh;
-    }
-    .auth-left {
-      border-right: none;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-      padding: 2.25rem 1.5rem;
-      gap: 2rem;
-    }
-    .auth-headline {
-      font-size: 1.85rem;
-    }
-    .auth-right {
-      padding: 2rem 1.5rem 2.5rem 1.5rem;
-    }
-    .auth-right h2 {
-      font-size: 1.6rem;
-    }
-    .auth-address-row {
-      flex-wrap: wrap;
-    }
-    .auth-gps-btn {
-      width: 100%;
-      padding: 0.85rem 1rem;
-    }
+    .auth-page { padding: 0; align-items: flex-start; }
+    .auth-card { flex-direction: column; max-width: 100%; border-radius: 0; min-height: 100vh; }
+    .auth-left { border-right: none; border-bottom: 1px solid rgba(0,0,0,0.06); padding: 2.25rem 1.5rem; gap: 2rem; }
+    .auth-headline { font-size: 1.85rem; }
+    .auth-right { padding: 2rem 1.5rem 2.5rem 1.5rem; }
+    .auth-right h2 { font-size: 1.6rem; }
+    .auth-address-row { flex-wrap: wrap; }
+    .auth-gps-btn { width: 100%; padding: 0.85rem 1rem; }
   }
 
-  /* ---------- Very small phones ---------- */
   @media (max-width: 380px) {
-    .auth-left {
-      padding: 1.75rem 1.25rem;
-    }
-    .auth-right {
-      padding: 1.75rem 1.25rem 2.25rem 1.25rem;
-    }
-    .auth-brand {
-      font-size: 1.25rem;
-    }
-    .auth-headline {
-      font-size: 1.55rem;
-    }
+    .auth-left { padding: 1.75rem 1.25rem; }
+    .auth-right { padding: 1.75rem 1.25rem 2.25rem 1.25rem; }
+    .auth-brand { font-size: 1.25rem; }
+    .auth-headline { font-size: 1.55rem; }
   }
 `;
 
+// ─────────────────────────────────────────────
+// App
+// ─────────────────────────────────────────────
 export default function App() {
+  const { toasts, notify, dismiss } = useToast();
+
   const [user, setUser] = useState(null);
   const [role, setRole] = useState("customer");
   const [loading, setLoading] = useState(true);
@@ -286,7 +351,6 @@ export default function App() {
       }
       setLastScrollY(currentScrollY);
     };
-
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
@@ -400,9 +464,8 @@ export default function App() {
 
   const fetchLiveLocation = () => {
     if (!navigator.geolocation) {
-      return alert(
-        "Geolocation features are not supported by this browser interface.",
-      );
+      notify("Geolocation is not supported by this browser.", "warning");
+      return;
     }
     setLocLoading(true);
     navigator.geolocation.getCurrentPosition(
@@ -410,7 +473,7 @@ export default function App() {
         const { latitude, longitude } = position.coords;
         try {
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
           );
           const data = await res.json();
           if (data && data.display_name) {
@@ -418,25 +481,27 @@ export default function App() {
           } else {
             setAddress(`Lat: ${latitude}, Lon: ${longitude}`);
           }
+          notify("Location detected successfully.", "success");
         } catch (err) {
           setAddress(`Lat: ${latitude}, Lon: ${longitude}`);
+          notify("Could not resolve address — coordinates saved.", "warning");
         } finally {
           setLocLoading(false);
         }
       },
       (error) => {
-        alert(`Location Error: ${error.message}`);
+        notify(`Location error: ${error.message}`, "error");
         setLocLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 },
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
+
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (isRegistering) {
-        // --- Existing Registration Logic ---
         const { data: authData, error: signUpError } =
           await supabase.auth.signUp({
             email: email.trim(),
@@ -460,21 +525,17 @@ export default function App() {
         setEmail("");
         setPassword("");
         setIsRegistering(false);
-        alert("🎉 Account created successfully! Please sign in.");
+        notify("Account created! Please sign in.", "success");
       } else {
-        // --- ADDED: Sign In Logic ---
         const { data, error } = await supabase.auth.signInWithPassword({
           email: loginIdentifier.trim(),
           password: password,
         });
-
         if (error) throw error;
-        
-        // No need to manually set user; onAuthStateChange handles it!
-        alert("Successfully signed in!");
+        notify("Signed in successfully.", "success");
       }
     } catch (err) {
-      alert("Error: " + err.message);
+      notify(err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -489,13 +550,12 @@ export default function App() {
   };
 
   async function handleCheckout(orderData) {
-    // Check for an active session
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
     if (!session) {
-      alert("Your session has expired. Please log in again.");
+      notify("Your session has expired. Please log in again.", "error");
       setUser(null);
       return;
     }
@@ -515,16 +575,16 @@ export default function App() {
 
       if (error) throw error;
 
-      alert("🎉 Order placed successfully!");
+      notify("Order placed successfully!", "success");
       setCart([]);
-      // Ensure fetchOrders is defined in the same scope or accessible
       fetchOrders();
       setCurrentView("orders");
     } catch (err) {
       console.error("Checkout failed:", err);
-      alert("Checkout failed: " + err.message);
+      notify("Checkout failed: " + err.message, "error");
     }
   }
+
   if (loading) {
     return (
       <div
@@ -595,7 +655,9 @@ export default function App() {
       <div className="auth-page">
         <style>{authResponsiveStyles}</style>
 
-        {/* Background image swap stays inline since it depends on React state */}
+        {/* Toast layer is available even on the auth screen */}
+        <ToastContainer toasts={toasts} onDismiss={dismiss} />
+
         <div
           className="auth-bg"
           style={{
@@ -666,7 +728,6 @@ export default function App() {
                     onChange={(e) => setMobile(e.target.value)}
                     required
                   />
-
                   <div className="auth-address-row">
                     <input
                       type="text"
@@ -711,8 +772,9 @@ export default function App() {
 
   return (
     <div className="app-layout" style={{ paddingBottom: "70px" }}>
-      {" "}
-      {/* Gives room for the bottom navbar on mobile */}
+      {/* Global toast layer */}
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
+
       <div style={{ position: "sticky", top: 0, zIndex: 100, width: "100%" }}>
         <ClientDashboard
           products={products}
@@ -731,6 +793,7 @@ export default function App() {
           fetchOrders={fetchOrders}
         />
       </div>
+
       <main className="main-content">
         <div style={{ width: "100%", margin: "0", boxSizing: "border-box" }}>
           {currentView === "products" &&
